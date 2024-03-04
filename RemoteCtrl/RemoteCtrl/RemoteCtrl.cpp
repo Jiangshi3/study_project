@@ -9,6 +9,11 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+// 可以通过代码设置入口
+// #pragma comment(linker, "/subsystem:windows /entry:WinMainCRTStartup")  // 窗口   启动后会调用WinMain
+// #pragma comment(linker, "/subsystem:windows /entry:mainCRTStartup")     // 窗口   启动后会调用main（就没有窗口）
+// #pragma comment(linker, "/subsystem:console /entry:mainCRTStartup")     // 控制台   
+// #pragma comment(linker, "/subsystem:console /entry:WinMainCRTStartup")  // 控制台  （这里启动后又会有窗口）
 
 
 // git提交测试
