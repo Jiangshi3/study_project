@@ -21,7 +21,7 @@ public:
 		strData = pack.strData;
 		sSum = pack.sSum;
 	}
-	CPacket(const BYTE* pData, size_t& nSize)  // 解析包
+	CPacket(const BYTE* pData, size_t& nSize)  // 数据包解包，将包中的数据分配到成员变量中
 	{
 		size_t i = 0;
 		for (; i < nSize; i++) {
@@ -45,17 +45,19 @@ public:
 		sCmd = *(WORD*)(pData + i);
 		i += 2;
 		if (nLength > 4) {
-			strData.resize(nLength - 2 - 2); // 注：nength包括：控制命令、包数据、和校验的长度
-			memcpy((void*)strData.c_str(), (pData + i), (nLength - 2 - 2));
+			strData.resize(nLength - 2 - 2); // 注：nLength包括：控制命令、包数据、和校验的长度
+			memcpy((void*)strData.c_str(), (pData + i), (nLength - 2 - 2));  // 读取数据
 			i += (nLength - 2);
 		}
 		sSum = *(WORD*)(pData + i);
 		i += 2;
+
 		WORD sum = 0;
 		for (size_t j = 0; j < strData.size(); j++) {
-			sum += BYTE(strData[j]) & 0xFF;
+			// 将 strData[j] 转换为 BYTE 类型并进行按位与操作，确保只取字符的低8位,并清除任何不必要的高位影响。
+			sum += BYTE(strData[j]) & 0xFF; 
 		}
-		if (sum == sSum) {
+		if (sum == sSum) {  // 校验
 			nSize = i;
 			return;
 		}
@@ -73,13 +75,11 @@ public:
 		return *this;
 	}
 public:
-	WORD        sHead;   // 包头 固定位FE EF
+	WORD        sHead;   // 包头 固定位FEEF
 	DWORD       nLength; // 包长 (从控制命令开始，到和校验结束)
 	WORD        sCmd;    // 控制命令 (考虑对齐)
 	std::string strData; // 包数据
 	WORD        sSum;    // 和校验
-protected:
-private:
 };
 
 
@@ -132,11 +132,11 @@ public:
 			m_packet = CPacket((BYTE*)buffer, len);  // 这里第二个参数len传入的引用；会改变其值;(所以后面的len的值不一定等于之前的值)
 			if (len > 0)   // 这里的len表示的是：用到的一整块数据包的长度
 			{
-				index -= len;
+				index -= len; 
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);   // 缓冲区的处理！！！！！！
 				return m_packet.sCmd;
 			}
-			// 如果len<=0 表示缓冲区还没有一整块数据包，就让继续while循环
+			// 如果len==0 表示缓冲区还没有一整块数据包，就让继续while循环
 		}
 		return -1;
 	}
