@@ -10,6 +10,9 @@ typedef unsigned short      WORD;   // 2字节
 typedef unsigned long long  size_t; // 8字节
 */
 
+
+#pragma pack(push, 1)  // 更改对齐方式， 让下面的CPacket类将按照一个字节的边界对齐；
+
 class CPacket
 {
 public:
@@ -21,6 +24,20 @@ public:
 		strData = pack.strData;
 		sSum = pack.sSum;
 	}
+
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize)  // 打包,这里传入的nSize是data的长度
+	{
+		sHead = 0xFEFF;
+		nLength = nSize + 4;
+		sCmd = nCmd;
+		strData.resize(nSize);
+		memcpy((void*)strData.c_str(), pData, nSize);
+		sSum = 0;
+		for (size_t i = 0; i < nSize; i++) {
+			sSum += (BYTE)pData[i] & 0xFF;
+		}
+	}
+
 	CPacket(const BYTE* pData, size_t& nSize)  // 数据包解包，将包中的数据分配到成员变量中
 	{
 		size_t i = 0;
@@ -74,14 +91,29 @@ public:
 		}
 		return *this;
 	}
-public:
-	WORD        sHead;   // 包头 固定位FEEF
-	DWORD       nLength; // 包长 (从控制命令开始，到和校验结束)
-	WORD        sCmd;    // 控制命令 (考虑对齐)
-	std::string strData; // 包数据
-	WORD        sSum;    // 和校验
-};
+	int Size() {  // 获得整个包的大小
+		return nLength + 4 + 2;
+	}
+	const char* Data() {
+		strOut.resize(nLength + 6);
+		BYTE* pData = (BYTE*)strOut.c_str();  // 声明一个指针，指向strOut；
+		*(WORD*)pData = sHead; pData += 2;
+		*(DWORD*)pData = nLength; pData += 4;
+		*(WORD*)pData = sCmd; pData += 2;
+		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
+		*(WORD*)pData = sSum;
+		return strOut.c_str();  // 最后返回strOut的指针
+	}
 
+public:
+	WORD        sHead;   // 包头 固定位FEEF                       2字节
+	DWORD       nLength; // 包长 (从控制命令开始，到和校验结束)   4字节
+	WORD        sCmd;    // 控制命令 (考虑对齐)                   2字节
+	std::string strData; // 包数据                             
+	WORD        sSum;    // 和校验                                2字节
+	std::string strOut;  // 整个包的数据
+};
+#pragma pack(pop)
 
 
 class CServerSocket
@@ -144,6 +176,11 @@ public:
 	bool SendMsg(const char* msg, int nSize) {
 		if (m_clntSock == -1) return false;
 		return send(m_clntSock, msg, nSize, 0) > 0;
+	}
+	bool SendMsg(CPacket& packet) // 这里不能使用const了，因为packet.Data()会改变成员值
+	{
+		if (m_clntSock == -1) return false;
+		return send(m_clntSock, packet.Data(), packet.Size(), 0) > 0; 
 	}
 
 private:

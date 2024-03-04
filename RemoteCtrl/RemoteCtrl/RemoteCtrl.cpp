@@ -5,6 +5,7 @@
 #include "framework.h"
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
+#include <direct.h>  // _chdrive();
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -25,6 +26,38 @@ CWinApp theApp;
 
 using namespace std;
 
+void Dump(BYTE* pData, size_t nSize) {
+    std::string strOut;
+    for (size_t i = 0; i < nSize; i++) {
+        char buf[8] = "";
+        if (i > 0 && (i % 16 == 0)) strOut += "\n";
+        snprintf(buf, sizeof(buf), "%02X ", pData[i] & 0xFF);
+        strOut += buf;
+    }
+    strOut += '\n';
+    OutputDebugStringA(strOut.c_str());
+}
+
+
+int MakeDriverInfo()  // 1-->A盘； 2->B盘；3->C盘；...26->Z盘；
+{
+    std::string result;
+    for (int i = 1; i <= 26; i++) {
+        if (_chdrive(i) == 0)  // _chdrive(),更改当前的驱动器号,成功返回0
+        {  
+            if (result.size() > 0) 
+                result += ',';
+            result += ('A' + i - 1);
+        }
+    }
+    CPacket pack(1, (BYTE*)result.c_str(), result.size());  // 实现这个重载；打包用的
+    // Dump((BYTE*)&pack, pack.Size());  // (BYTE*)&pack这种方式是错误的；
+    Dump((BYTE*)pack.Data(), pack.Size());  
+    // CServerSocket::getInstance()->SendMsg(pack);
+    return 0;
+}
+
+
 int main()
 {
     int nRetCode = 0;
@@ -42,6 +75,7 @@ int main()
         else
         {
             // TODO: socket、bind、listen、accept、read、write
+            /*
             int count = 0;
             CServerSocket* pServer = CServerSocket::getInstance();  // 单例
 			if (pServer->InitSocket() == false) {
@@ -61,6 +95,14 @@ int main()
                 int ret = pServer->DealCommand();
                 // TODO:
             }
+            */
+            int nCmd = 1;
+            switch (nCmd) {
+            case 1: // 查看磁盘分区
+                MakeDriverInfo();
+                break;
+            }
+            
 
         }
     }
