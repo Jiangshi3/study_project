@@ -115,6 +115,48 @@ int MakeDirectoryInfo() {
     return 0;
 }
 
+int RunFile() {
+    std::string strPath;
+    CServerSocket::getInstance()->GetFilePath(strPath);
+    // ShellExecuteA()这个就相当于双击这个文件，如果是.exe就运行，文件就打开....
+    ShellExecuteA(NULL, NULL, strPath.c_str(), NULL, NULL, SW_SHOWNORMAL); // UNICODE嘛？感觉应该是ShellExecuteW
+	CPacket pack(3, NULL, 0);
+	CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
+#pragma warning(disable : 4996)  // 包括一些：fopen;  sprintf; strcpy; strstr
+int DownloadFile() {
+	std::string strPath;
+    long long data = 0;  // 8字节;  对面先接收8字节的data，如果data是0就表示失败；不为0表示是文件的大小。
+	CServerSocket::getInstance()->GetFilePath(strPath);
+    FILE* pFile = fopen(strPath.c_str(), "rb"); // 因不知道文件是什么，要以二进制
+    if (pFile == NULL) {
+        // CPacket pack(4, NULL, 0);
+        CPacket head(4, (BYTE*)&data, 8);  // head
+        CServerSocket::getInstance()->Send(head);
+        return -1;
+    }
+    fseek(pFile, 0, SEEK_END);
+    // data = ftell(pFile);
+    data = _ftelli64(pFile);
+    fseek(pFile, 0, SEEK_SET);  // 记得要fseek回来
+    CPacket head(4, (BYTE*)&data, 8);  // head
+    CServerSocket::getInstance()->Send(head);
+
+    char buffer[1024] = ""; // 建议不要太大，1K就好
+    size_t rlen = 0;
+    do {
+        rlen = fread(buffer, 1, 1024, pFile);
+		CPacket pack(4, (BYTE*)buffer, rlen);
+		CServerSocket::getInstance()->Send(pack);
+    } while (rlen>=1024);
+	CPacket end(4, NULL, 0);
+	CServerSocket::getInstance()->Send(end);
+    fclose(pFile); // 记得关闭
+    return 0;
+}
+
 
 int main()
 {
@@ -161,6 +203,12 @@ int main()
                 break;
             case 2: // 查看指定目录下的文件
                 MakeDirectoryInfo();
+                break;
+            case 3:  // 运行文件
+                RunFile();
+                break;
+            case 4:
+                DownloadFile();
                 break;
             }
             
