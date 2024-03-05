@@ -166,21 +166,28 @@ public:
 			{
 				index -= len; 
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);   // 缓冲区的处理！！！！！！
-				return m_packet.sCmd;
+				return m_packet.sCmd;  // 并返回一个操作指令
 			}
 			// 如果len==0 表示缓冲区还没有一整块数据包，就让继续while循环
 		}
 		return -1;
 	}
 
-	bool SendMsg(const char* msg, int nSize) {
+	bool Send(const char* msg, int nSize) {
 		if (m_clntSock == -1) return false;
 		return send(m_clntSock, msg, nSize, 0) > 0;
 	}
-	bool SendMsg(CPacket& packet) // 这里不能使用const了，因为packet.Data()会改变成员值
+	bool Send(CPacket& packet) // 这里不能使用const了，因为packet.Data()会改变成员值
 	{
 		if (m_clntSock == -1) return false;
 		return send(m_clntSock, packet.Data(), packet.Size(), 0) > 0; 
+	}
+	bool GetFilePath(std::string& strPath) {
+		if (m_packet.sCmd == 2) {
+			strPath = m_packet.strData;
+			return true;
+		}
+		return false;		
 	}
 
 private:
