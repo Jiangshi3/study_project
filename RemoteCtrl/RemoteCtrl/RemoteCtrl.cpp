@@ -250,6 +250,51 @@ int MouseEvent() {
     return 0;
 }
 
+#include <atlimage.h>
+int SendScreen() {
+    CImage screen;  // GDI
+    // DC:设备上下文
+    HDC hScreen = ::GetDC(NULL);  // 获取整个屏幕的设备上下文句柄（HDC）
+    // GetDeviceCaps()函数获取屏幕设备上下文的属性;
+    int nBitPerPixel = GetDeviceCaps(hScreen, BITSPIXEL);  // BITSPIXEL参数表示每个像素的位数
+    int nWidth = GetDeviceCaps(hScreen, HORZRES);          // HORZRES参数表示屏幕水平分辨率，即屏幕的宽度
+	int nHeight = GetDeviceCaps(hScreen, VERTRES);       
+	screen.Create(nWidth, nHeight, nBitPerPixel); // 使用CImage对象的Create方法创建一个位图
+    BitBlt(screen.GetDC(), 0, 0, 2560, 1440, hScreen, 0, 0, SRCCOPY);  // 使用BitBlt函数将屏幕内容复制到创建的位图中
+    // 2560×1440   1920×1080
+    ReleaseDC(NULL, hScreen);
+
+    // 保存到内存中去
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);
+    if (hMem == NULL) return -1;
+    IStream* pStream = NULL;
+    HRESULT ret = CreateStreamOnHGlobal(hMem, TRUE, &pStream);
+    if (ret == S_OK) {
+        screen.Save(pStream, Gdiplus::ImageFormatJPEG);
+        LARGE_INTEGER bg = { 0 };
+        pStream->Seek(bg, STREAM_SEEK_SET, NULL);
+        PBYTE pData = (PBYTE)GlobalLock(hMem);
+        SIZE_T nSize = GlobalSize(hMem);
+        CPacket pack(6, pData, nSize);
+        CServerSocket::getInstance()->Send(pack);
+        GlobalUnlock(hMem);
+    }
+    pStream->Release();
+    GlobalFree(hMem);
+    /*
+    DWORD tick = GetTickCount64();  // GetTickCount()获取当前时间(毫秒级)
+    screen.Save(_T("test.png"), Gdiplus::ImageFormatPNG);
+    TRACE("png: %d\r\n", GetTickCount64() - tick);
+    tick = GetTickCount64();
+    screen.Save(_T("test.jpg"), Gdiplus::ImageFormatJPEG);
+    TRACE("jpg: %d\r\n", GetTickCount64() - tick);
+    */
+    // 倾向选择jpg;  【但这里是保存到文件中了】
+    // screen.Save(_T("test.jpg"), Gdiplus::ImageFormatJPEG);  // 对比：两种图片的大小(所消耗网络带宽)、压缩时间(消耗CPU)
+    screen.ReleaseDC();
+    return 0;
+}
+
 
 int main()
 {
@@ -289,7 +334,7 @@ int main()
                 // TODO:
             }
             */
-            int nCmd = 1;
+            int nCmd = 6;
             switch (nCmd) {
             case 1: // 查看磁盘分区
                 MakeDriverInfo();
@@ -300,11 +345,14 @@ int main()
             case 3:  // 运行文件
                 RunFile();
                 break;
-            case 4:
+            case 4:  // 下载文件
                 DownloadFile();
                 break;
-            case 5:
+            case 5:  // 鼠标操作
                 MouseEvent();
+                break;
+            case 6:  // 发送屏幕内容 ---> 发送屏幕截图
+                SendScreen();
                 break;
             }
             
