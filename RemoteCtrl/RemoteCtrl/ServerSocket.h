@@ -121,6 +121,19 @@ public:
 #pragma pack(pop)
 
 
+typedef struct MouseEvent{
+	MouseEvent() {
+		nAction = 0;
+		nButton = -1;
+		ptXY.x = 0;
+		ptXY.y = 0;
+	}
+	WORD nAction; // 0表示单击，1表示双击，2表示按下，3表示放开，4不作处理
+	WORD nButton; // 0表示左键，1表示右键，2表示中键，3没有按键
+	POINT ptXY;   // 坐标
+}MOUSEEV,*PMOUSEEV;
+
+
 class CServerSocket
 {
 public:
@@ -195,6 +208,14 @@ public:
 		}
 		return false;		
 	}
+	bool GetMouseEvent(MOUSEEV& mouse)  // 鼠标：移动，单击，右击，双击；需要一个结构体；
+	{
+		if (m_packet.sCmd == 5) {
+			memcpy(&mouse, m_packet.strData.c_str(), sizeof(MOUSEEV));
+			return true;
+		}
+		return false;
+	}
 
 private:
 	SOCKET m_servSock;
@@ -223,8 +244,6 @@ private:
 		return TRUE;
 	}
 private:
-	
-
 	static void releseInstance() {
 		if (m_instance != NULL) {
 			CServerSocket* tmp = m_instance;
