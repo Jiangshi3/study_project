@@ -7,6 +7,7 @@
 #include "RemoteClient.h"
 #include "RemoteClientDlg.h"
 #include "afxdialogex.h"
+// #include "ClientSocket.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
