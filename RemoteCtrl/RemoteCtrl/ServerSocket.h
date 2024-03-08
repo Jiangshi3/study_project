@@ -159,9 +159,11 @@ public:
 	}
 
 	bool AcceptClient() {
+		TRACE("enter AcceptClient()\r\n");
 		sockaddr_in clnt_addr;
 		int clnt_len = sizeof(clnt_addr);
 		m_clntSock = accept(m_servSock, (struct sockaddr*)&clnt_addr, &clnt_len);
+		TRACE("m_clntSock=%d\r\n", m_clntSock);
 		if (m_clntSock == -1)return false;
 		return true;
 	}
@@ -169,12 +171,16 @@ public:
 #define BUFFER_SIZE 4096
 	int DealCommand() {
 		if (m_clntSock == -1) return -1;
-		char* buffer = new char[BUFFER_SIZE];
+		char* buffer = new char[BUFFER_SIZE];  
+		if (buffer == NULL) {
+			TRACE("内存不足\r\n");
+		}
 		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true) {
 			size_t len = recv(m_clntSock, buffer+index, BUFFER_SIZE-index, 0);  // 缓冲区的处理！！！！！！
 			if (len <= 0) {
+				delete[] buffer;
 				return -1;
 			}
 			index += len;  // !!!
@@ -184,11 +190,17 @@ public:
 			{
 				index -= len; 
 				memmove(buffer, buffer + len, BUFFER_SIZE - len);   // 缓冲区的处理！！！！！！
+				delete[] buffer;
 				return m_packet.sCmd;  // 并返回一个操作指令
 			}
 			// 如果len==0 表示缓冲区还没有一整块数据包，就让继续while循环
 		}
+		delete[] buffer;
 		return -1;
+	}
+
+	CPacket& GetPacket() {
+		return m_packet;
 	}
 
 	bool Send(const char* msg, int nSize) {
@@ -215,6 +227,11 @@ public:
 			return true;
 		}
 		return false;
+	}
+
+	void CloseClient() {
+		closesocket(m_clntSock);
+		m_clntSock = INVALID_SOCKET;
 	}
 
 private:

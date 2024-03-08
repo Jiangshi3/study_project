@@ -3,6 +3,7 @@
 #include "pch.h"
 #include "framework.h"
 #include <string>
+#include <vector>
 
 #pragma pack(push, 1)  // 更改对齐方式， 让下面的CPacket类将按照一个字节的边界对齐；
 class CPacket
@@ -141,6 +142,8 @@ public:
 		return m_instance;
 	}
 	bool InitSocket(const std::string strIpAddress) {
+		if (m_sock != INVALID_SOCKET) CloseSocket();
+		m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		if (m_sock == -1) return false;
 		sockaddr_in serv_addr;
 		memset(&serv_addr, 0, sizeof(serv_addr));
@@ -163,7 +166,8 @@ public:
 #define BUFFER_SIZE 4096
 	int DealCommand() {
 		if (m_sock == -1) return -1;
-		char* buffer = new char[BUFFER_SIZE];
+		// char* buffer = new char[BUFFER_SIZE];
+		char* buffer = m_buffer.data();  // .data() 成员函数返回指向容器中第一个元素的指针
 		memset(buffer, 0, BUFFER_SIZE);
 		size_t index = 0;
 		while (true) {
@@ -211,7 +215,17 @@ public:
 		return false;
 	}
 
+	CPacket& GetPacket() {
+		return m_packet;
+	}
+
+	void CloseSocket() {
+		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
+	}
+
 private:
+	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
 	CClientSocket() {
@@ -220,7 +234,7 @@ private:
 			MessageBox(NULL, _T("无法初始化套接字环境"), _T("初始化错误"), MB_OK | MB_ICONERROR);
 			exit(0);
 		}
-		m_sock = socket(PF_INET, SOCK_STREAM, 0);
+		m_buffer.resize(BUFFER_SIZE);
 	}
 	CClientSocket(const CClientSocket&) {}              // 禁止拷贝构造
 	CClientSocket& operator=(const CClientSocket&) {}   // 禁止拷贝赋值

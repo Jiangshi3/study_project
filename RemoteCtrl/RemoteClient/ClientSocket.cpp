@@ -6,6 +6,8 @@ CClientSocket* CClientSocket::m_instance = NULL;  // 静态成员函数显示初始化
 CClientSocket::CHelper CClientSocket::m_helper;   // 实现
 CClientSocket* pServer = CClientSocket::getInstance();
 
+
+// 在.cpp里面实现
 std::string GetErrorInfo(int wsaErrCode) {
 	std::string ret;
 	LPVOID lpMsgBuf = NULL;  // void*

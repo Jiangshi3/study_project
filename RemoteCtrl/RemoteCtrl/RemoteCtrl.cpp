@@ -373,6 +373,49 @@ int UnlockMachine()
     return 0;
 }
 
+int TextConnect() {
+	CPacket pack(1981, NULL, 0);
+	CServerSocket::getInstance()->Send(pack);
+	return 0;
+}
+
+
+int ExcuteCommand(int nCmd)
+{
+    int ret = 0;
+	switch (nCmd) {
+	case 1: // 查看磁盘分区
+		ret = MakeDriverInfo();
+		break;
+	case 2: // 查看指定目录下的文件
+        ret = MakeDirectoryInfo();
+		break;
+	case 3:  // 运行文件
+        ret = RunFile();
+		break;
+	case 4:  // 下载文件
+        ret = DownloadFile();
+		break;
+	case 5:  // 鼠标操作
+        ret = MouseEvent();
+		break;
+	case 6:  // 发送屏幕内容 ---> 发送屏幕截图
+        ret = SendScreen();
+		break;
+	case 7:  // 锁机
+        ret = LockMachine();  // dlg是全局的
+		// Sleep(50);
+		// LockMachine();  // 加了判断，不会重复创建线程
+		break;
+	case 8:  // 解锁
+        ret = UnlockMachine();
+		break;
+    case 1981:
+        ret = TextConnect();
+        break;
+	}
+    return ret;
+}
 
 
 int main()
@@ -392,7 +435,6 @@ int main()
         else
         {
             // TODO: socket、bind、listen、accept、read、write
-            /*
             int count = 0;
             CServerSocket* pServer = CServerSocket::getInstance();  // 单例
 			if (pServer->InitSocket() == false) {
@@ -409,47 +451,19 @@ int main()
 					MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户failed"), MB_OK | MB_ICONERROR);
                     count++;
                 }
-                int ret = pServer->DealCommand(); // 返回的是一个操作指令；
-                // TODO:
-            }
-            */
-            
-
-            int nCmd = 7;
-            switch (nCmd) {
-            case 1: // 查看磁盘分区
-                MakeDriverInfo();
-                break;
-            case 2: // 查看指定目录下的文件
-                MakeDirectoryInfo();
-                break;
-            case 3:  // 运行文件
-                RunFile();
-                break;
-            case 4:  // 下载文件
-                DownloadFile();
-                break;
-            case 5:  // 鼠标操作
-                MouseEvent();
-                break;
-            case 6:  // 发送屏幕内容 ---> 发送屏幕截图
-                SendScreen();
-                break;
-            case 7:  // 锁机
-                LockMachine();  // dlg是全局的
-                // Sleep(50);
-                // LockMachine();  // 加了判断，不会重复创建线程
-                break;
-            case 8:  // 解锁
-                UnlockMachine();
-                break;
-            }
-            Sleep(3000);
-            UnlockMachine();
-            // TRACE("------------m_hWnd=%08X-------------\r\n", dlg.m_hWnd);  
-            while (dlg.m_hWnd != NULL) {
-                Sleep(10);
-            }
+                int ret = pServer->DealCommand(); // 如果正确的话返回的是一个操作指令；
+                if (ret != -1)   // TODO  
+                {
+                    ret = ExcuteCommand(ret);
+                    if (ret != 0) // 在处理命令的函数中，正确就返回0
+                    {
+                        TRACE("执行命令失败：%d, ret=%d\r\n", pServer->GetPacket().sCmd, ret);
+                    }
+                    // 采用短连接（如果采用长连接就不需要close）
+                    pServer->CloseClient();   
+                    TRACE("Command has done!\r\n");
+                }
+            }     
         }
     }
     else
