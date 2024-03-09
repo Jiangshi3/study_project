@@ -41,6 +41,7 @@ void Dump(BYTE* pData, size_t nSize) {
 
 int MakeDriverInfo()  // 1-->A盘； 2->B盘；3->C盘；...26->Z盘；
 {
+    TRACE("%s(%d): Enter MakeDriverInfo() \r\n", __FILE__,__LINE__);
     std::string result;
     for (int i = 1; i <= 26; i++) {
         if (_chdrive(i) == 0)  // _chdrive(),更改当前的驱动器号,成功返回0
@@ -53,7 +54,7 @@ int MakeDriverInfo()  // 1-->A盘； 2->B盘；3->C盘；...26->Z盘；
     CPacket pack(1, (BYTE*)result.c_str(), result.size());  // 实现这个重载；打包用的
     // Dump((BYTE*)&pack, pack.Size());  // (BYTE*)&pack这种方式是错误的；
     Dump((BYTE*)pack.Data(), pack.Size());  
-    // CServerSocket::getInstance()->Send(pack);
+    CServerSocket::getInstance()->Send(pack);
     return 0;
 }
 
