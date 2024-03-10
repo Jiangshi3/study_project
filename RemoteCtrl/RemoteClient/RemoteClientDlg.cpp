@@ -65,6 +65,7 @@ void CRemoteClientDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_IPAddress(pDX, IDC_IPADDRESS_SERV, m_server_address);
 	DDX_Text(pDX, IDC_EDIT_PORT, m_nPort);
 	DDX_Control(pDX, IDC_TREE_DIR, m_tree);
+	DDX_Control(pDX, IDC_LIST_FILE, m_list);
 }
 
 BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
@@ -74,6 +75,8 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BTN_TEST, &CRemoteClientDlg::OnBnClickedBtnTest)
 	ON_BN_CLICKED(IDC_BTN_FILEINFO, &CRemoteClientDlg::OnBnClickedBtnFileinfo)
 	ON_NOTIFY(NM_DBLCLK, IDC_TREE_DIR, &CRemoteClientDlg::OnNMDblclkTreeDir)
+	ON_NOTIFY(NM_CLICK, IDC_TREE_DIR, &CRemoteClientDlg::OnNMClickTreeDir)
+	ON_NOTIFY(NM_RCLICK, IDC_LIST_FILE, &CRemoteClientDlg::OnNMRClickListFile)
 END_MESSAGE_MAP()
 
 
@@ -217,6 +220,7 @@ void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 	}
 }
 
+
 CString CRemoteClientDlg::GetPath(HTREEITEM hTree)
 {
 	CString strRet, strTmp;
@@ -237,30 +241,27 @@ void CRemoteClientDlg::DeleteTreeChildrenItem(HTREEITEM hTree)
 	} while (hSub != NULL);
 }
 
-void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
-{
-	// TODO: 在此添加控件通知处理程序代码
-	*pResult = 0;
 
+void CRemoteClientDlg::LoadFileInfo()
+{
 	CPoint ptMouse;
 	GetCursorPos(&ptMouse);
-	m_tree.ScreenToClient(&ptMouse);
+	m_tree.ScreenToClient(&ptMouse);  // 将获取到的鼠标坐标转换为相对于树形控件客户区的坐标。
 	HTREEITEM hTreeSelected = m_tree.HitTest(ptMouse, 0);
 	if (hTreeSelected == NULL)  // 如果点击为空白
 		return;
-
 	if (m_tree.GetChildItem(hTreeSelected) == NULL)  // 如果没有子目录（如果是个文件）
 		return;
 	DeleteTreeChildrenItem(hTreeSelected); // 先清空
-
+	m_list.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);
-	int nCmd = SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength()); 
+	int nCmd = SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
 	CClientSocket* pClient = CClientSocket::getInstance();
-	PFILEINFO pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();  
+	PFILEINFO pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
 	while (pInfo->HasNext) {
 		TRACE("[%s] isdir: %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
 		if (pInfo->IsDirectory) {
-			if ((CString)(pInfo->szFileName) == "."  || (CString)(pInfo->szFileName) == "..")  // 排除这两个目录
+			if ((CString)(pInfo->szFileName) == "." || (CString)(pInfo->szFileName) == "..")  // 排除这两个目录
 			{
 				int cmd = pClient->DealCommand();
 				TRACE("ack:%d\r\n", cmd);
@@ -268,16 +269,55 @@ void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 				pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
 				continue;
 			}
-		}
-		HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-		if (pInfo->IsDirectory) 
+			HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
 			m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
+
+		}
+		else {
+			m_list.InsertItem(0, pInfo->szFileName);
+		}
+		
 		int cmd = pClient->DealCommand();
 		TRACE("ack:%d\r\n", cmd);
 		if (cmd < 0)break;
 		pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
-		// pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().Data();
 	}
-
 	pClient->CloseSocket();
+}
+
+void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	// TODO: 在此添加控件通知处理程序代码
+	*pResult = 0;
+	LoadFileInfo();
+	
+}
+
+
+void CRemoteClientDlg::OnNMClickTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	// TODO: 在此添加控件通知处理程序代码
+	*pResult = 0;
+	LoadFileInfo();
+}
+
+
+void CRemoteClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
+{
+	LPNMITEMACTIVATE pNMItemActivate = reinterpret_cast<LPNMITEMACTIVATE>(pNMHDR);
+	// TODO: 在此添加控件通知处理程序代码
+	*pResult = 0;
+
+	CPoint ptMouse, ptList;
+	GetCursorPos(&ptMouse);
+	ptList = ptMouse;
+	m_list.ScreenToClient(&ptList);
+	int ListSelected = m_list.HitTest(ptList);
+	if (ListSelected < 0) return;
+	CMenu menu;  // 右击到了
+	menu.LoadMenu(IDR_MENU_RCLICK); // 加载菜单
+	CMenu* pPupup = menu.GetSubMenu(0);
+	if (pPupup != NULL) {
+		pPupup->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, ptMouse.x, ptMouse.y, this);  // 左对齐
+	}
 }
