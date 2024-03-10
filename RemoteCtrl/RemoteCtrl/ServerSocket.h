@@ -1,7 +1,7 @@
 #pragma once
 #include "pch.h"
 #include "framework.h"
-
+void Dump(BYTE* pData, size_t nSize);
 /*
 typedef unsigned long       DWORD;  // 4字节
 typedef int                 BOOL;   
@@ -69,7 +69,7 @@ public:
 		if (nLength > 4) {
 			strData.resize(nLength - 2 - 2); // 注：nLength包括：控制命令、包数据、和校验的长度
 			memcpy((void*)strData.c_str(), (pData + i), (nLength - 2 - 2));  // 读取数据
-			i += (nLength - 2);
+			i += (nLength - 4);  // 自己写成了-2,没有debug出来  :( 
 		}
 		sSum = *(WORD*)(pData + i);
 		i += 2;
@@ -77,7 +77,7 @@ public:
 		WORD sum = 0;
 		for (size_t j = 0; j < strData.size(); j++) {
 			// 将 strData[j] 转换为 BYTE 类型并进行按位与操作，确保只取字符的低8位,并清除任何不必要的高位影响。
-			sum += BYTE(strData[j]) & 0xFF; 
+			sum += BYTE(strData[j]) & 0xFF;   //啥问题？ 
 		}
 		if (sum == sSum) {  // 校验
 			nSize = i;
@@ -120,6 +120,20 @@ public:
 };
 #pragma pack(pop)
 
+
+typedef struct file_info {
+	file_info()  // 结构体里面也可以构造函数
+	{
+		IsInvaild = FALSE;
+		IsDirectory = -1;
+		HasNext = TRUE;
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	BOOL IsInvaild;       // 是否无效    
+	BOOL IsDirectory;     // 是否为目录  0否，1是
+	BOOL HasNext;         // 是否还有后续 
+	char szFileName[256]; // 文件名
+}FILEINFO, * PFILEINFO;
 
 typedef struct MouseEvent{
 	MouseEvent() {
@@ -210,6 +224,7 @@ public:
 	bool Send(CPacket& packet) // 这里不能使用const了，因为packet.Data()会改变成员值
 	{
 		if (m_clntSock == -1) return false;
+		Dump((BYTE*)packet.Data(), packet.Size());
 		return send(m_clntSock, packet.Data(), packet.Size(), 0) > 0; 
 	}
 	bool GetFilePath(std::string& strPath) {

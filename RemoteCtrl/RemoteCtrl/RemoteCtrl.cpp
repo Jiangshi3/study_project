@@ -60,19 +60,6 @@ int MakeDriverInfo()  // 1-->A盘； 2->B盘；3->C盘；...26->Z盘；
 
 #include <io.h>
 #include <list>
-typedef struct file_info{
-    file_info()  // 结构体里面也可以构造函数
-    {
-        IsInvaild = FALSE;
-        IsDirectory = -1;
-        HasNext = TRUE;
-        memset(szFileName, 0, sizeof(szFileName));
-    }
-    BOOL IsInvaild;       // 是否无效    
-    BOOL IsDirectory;     // 是否为目录  0否，1是
-    BOOL HasNext;         // 是否还有后续 
-    char szFileName[256]; // 文件名
-}FILEINFO,*PFILEINFO;
 
 int MakeDirectoryInfo() {
     std::string strPath;
@@ -85,11 +72,7 @@ int MakeDirectoryInfo() {
     if (_chdir(strPath.c_str()) != 0)  // 切换到指定路径
     {
         FILEINFO finfo;
-        finfo.IsInvaild = TRUE;
-        finfo.IsDirectory = TRUE;
-        finfo.HasNext = FALSE;
-        memcpy(finfo.szFileName, strPath.c_str(), strPath.size());
-        // lstFileInfos.push_back(finfo);
+        finfo.HasNext = FALSE; // 直接把HasNext设为FALSE，并返回
         CPacket pack(2, (BYTE*) & finfo, sizeof(finfo));
         CServerSocket::getInstance()->Send(pack);
         OutputDebugString(_T("没有权限访问目录！"));
@@ -97,7 +80,11 @@ int MakeDirectoryInfo() {
     }
     _finddata_t fdata;
     int hfind = 0;
-    if ((hfind = _findfirst("*", &fdata)) == -1) {
+	if ((hfind = _findfirst("*", &fdata)) == -1) {
+		FILEINFO finfo;
+		finfo.HasNext = FALSE;
+		CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
+		CServerSocket::getInstance()->Send(pack);
 		OutputDebugString(_T("没有找到任何文件/失败！"));
 		return -3;
     }
@@ -105,7 +92,7 @@ int MakeDirectoryInfo() {
         FILEINFO finfo; // 默认构造函数的HasNext=TRUE; IsInvalid=FALSE;
         finfo.IsDirectory = (fdata.attrib & _A_SUBDIR) != 0;
         memcpy(finfo.szFileName, fdata.name, strlen(fdata.name));
-        // lstFileInfos.push_back(finfo);
+        TRACE("%s\r\n", finfo.szFileName);  
 		CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
 		CServerSocket::getInstance()->Send(pack);  // 发送消息到控制端
     } while (!_findnext(hfind, &fdata));
@@ -113,6 +100,7 @@ int MakeDirectoryInfo() {
     finfo.HasNext = FALSE;
 	CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
 	CServerSocket::getInstance()->Send(pack);
+    _findclose(hfind);  // IADD
     return 0;
 }
 
@@ -302,7 +290,7 @@ CLockinfoDialog dlg;  // 非模态，要声明为全局变量
 unsigned int threadid = 0;
 // 不能在主进程里面进行while()死循环，将无法收到Unlock的命令
 // unsigned __stdcall threadLockDlg(void* arg) 
-unsigned threadLockDlg(void* arg)
+unsigned __stdcall threadLockDlg(void* arg)
 {
     TRACE("%s(%d):%d\r\n", __FUNCTION__, __LINE__, GetCurrentThreadId());
 	dlg.Create(IDD_DIALOG_INFO, NULL);  // 在这里create比较好

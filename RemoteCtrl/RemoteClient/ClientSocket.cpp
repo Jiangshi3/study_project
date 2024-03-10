@@ -1,7 +1,7 @@
 #include "pch.h"
 #include "ClientSocket.h"
 
-CClientSocket* CClientSocket::m_instance = NULL;  // 静态成员函数显示初始化
+CClientSocket* CClientSocket::m_instance = NULL;  // 静态成员函数显式初始化
 // 声明：static CHelper m_helper;
 CClientSocket::CHelper CClientSocket::m_helper;   // 实现
 CClientSocket* pServer = CClientSocket::getInstance();

@@ -14,7 +14,7 @@ public:
 		sHead = pack.sHead;
 		nLength = pack.nLength;
 		sCmd = pack.sCmd;
-		strData = pack.strData;
+		strData = pack.strData;  // std::string类型可以直接=，调用std::string的赋值运算符重载； 但如果是char*就需要用strcpy()
 		sSum = pack.sSum;
 	}
 
@@ -62,11 +62,12 @@ public:
 		if (nLength > 4) {
 			strData.resize(nLength - 2 - 2); // 注：nLength包括：控制命令、包数据、和校验的长度
 			memcpy((void*)strData.c_str(), (pData + i), (nLength - 2 - 2));  // 读取数据
-			i += (nLength - 2);
+			i += (nLength - 4);
 		}
 		sSum = *(WORD*)(pData + i);
 		i += 2;
 
+		// 校验
 		WORD sum = 0;
 		for (size_t j = 0; j < strData.size(); j++) {
 			// 将 strData[j] 转换为 BYTE 类型并进行按位与操作，确保只取字符的低8位,并清除任何不必要的高位影响。
@@ -98,7 +99,7 @@ public:
 		*(WORD*)pData = sHead; pData += 2;
 		*(DWORD*)pData = nLength; pData += 4;
 		*(WORD*)pData = sCmd; pData += 2;
-		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();
+		memcpy(pData, strData.c_str(), strData.size()); pData += strData.size();  // pData是一个char*，所以需要memcpy()
 		*(WORD*)pData = sSum;
 		return strOut.c_str();  // 最后返回strOut的指针
 	}
@@ -113,6 +114,20 @@ public:
 };
 #pragma pack(pop)
 
+
+typedef struct file_info {
+	file_info()  // 结构体里面也可以构造函数
+	{
+		IsInvaild = FALSE;
+		IsDirectory = -1;
+		HasNext = TRUE;
+		memset(szFileName, 0, sizeof(szFileName));
+	}
+	BOOL IsInvaild;       // 是否无效    
+	BOOL IsDirectory;     // 是否为目录  0否，1是
+	BOOL HasNext;         // 是否还有后续 
+	char szFileName[256]; // 文件名
+}FILEINFO, * PFILEINFO;
 
 typedef struct MouseEvent {
 	MouseEvent() {
