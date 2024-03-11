@@ -245,6 +245,29 @@ void CRemoteClientDlg::DeleteTreeChildrenItem(HTREEITEM hTree)
 }
 
 
+void CRemoteClientDlg::LoadFileCurrrent()  // 用于删除文件后更新m_list
+{
+	HTREEITEM hTree = m_tree.GetSelectedItem();
+	CString strPath = GetPath(hTree);
+
+	m_list.DeleteAllItems();
+	int nCmd = SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
+	CClientSocket* pClient = CClientSocket::getInstance();
+	PFILEINFO pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
+	while (pInfo->HasNext) {
+		TRACE("[%s] isdir: %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
+		if (pInfo->IsDirectory==FALSE) {
+			m_list.InsertItem(0, pInfo->szFileName);
+		}
+
+		int cmd = pClient->DealCommand();
+		TRACE("ack:%d\r\n", cmd);
+		if (cmd < 0)break;
+		pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
+	}
+	pClient->CloseSocket();
+}
+
 void CRemoteClientDlg::LoadFileInfo()
 {
 	CPoint ptMouse;
@@ -274,7 +297,6 @@ void CRemoteClientDlg::LoadFileInfo()
 			}
 			HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
 			m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
-
 		}
 		else {
 			m_list.InsertItem(0, pInfo->szFileName);
@@ -374,11 +396,27 @@ void CRemoteClientDlg::OnDownloadFile()
 
 void CRemoteClientDlg::OnDeleteFile()
 {
-	// TODO: 在此添加命令处理程序代码
+	int nListSelected = m_list.GetSelectionMark();  // 列表框控件中获取当前选择的项目的索引
+	CString strFile = m_list.GetItemText(nListSelected, 0);
+	HTREEITEM hSelected = m_tree.GetSelectedItem();
+	strFile = GetPath(hSelected) + strFile;
+	int ret = SendCommandPacket(9, false, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	TRACE("ret:%d\r\n", ret);
+	if (ret < 0) {
+		AfxMessageBox("删除文件失败！");
+	}
+	LoadFileCurrrent();
 }
 
 
 void CRemoteClientDlg::OnRunFile()
 {
-	// TODO: 在此添加命令处理程序代码
+	int nListSelected = m_list.GetSelectionMark();  // 列表框控件中获取当前选择的项目的索引
+	CString strFile = m_list.GetItemText(nListSelected, 0);
+	HTREEITEM hSelected = m_tree.GetSelectedItem();
+	strFile = GetPath(hSelected) + strFile;
+	int ret = SendCommandPacket(3, false, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+	if (ret < 0) {
+		AfxMessageBox("打开文件失败！");
+	}
 }

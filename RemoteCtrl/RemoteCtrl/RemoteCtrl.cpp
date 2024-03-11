@@ -368,6 +368,25 @@ int TextConnect() {
 	return 0;
 }
 
+int DeleteLocalFile() 
+{
+    //TODO:
+	std::string strPath;
+	CServerSocket::getInstance()->GetFilePath(strPath);
+    // wcstombs();// wcs宽字节字符集    mbs多字节字符集
+    // mbstowcs();
+    /*
+    // 多字节字符集 转 宽字节字符集
+    TCHAR sPath[MAX_PATH] = _T("");
+    mbstowcs(sPath, strPath.c_str(), strPath.size());
+    */
+    DeleteFile((LPCSTR)strPath.c_str());
+    TRACE("%s(%d)%s: [%s]\r\n", __FILE__, __LINE__,__FUNCTION__, (LPCSTR)strPath.c_str());
+	CPacket pack(9, NULL, 0);
+	CServerSocket::getInstance()->Send(pack);
+    return 0;
+}
+
 
 int ExcuteCommand(int nCmd)
 {
@@ -399,6 +418,9 @@ int ExcuteCommand(int nCmd)
 	case 8:  // 解锁
         ret = UnlockMachine();
 		break;
+    case 9:  // 删除文件
+        ret = DeleteLocalFile(); // TODO
+        break;
     case 1981:
         ret = TextConnect();
         break;

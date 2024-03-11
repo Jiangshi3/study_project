@@ -21,6 +21,8 @@ public:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 	
 private:
+	// 用于删除文件后更新m_list
+	void LoadFileCurrrent();
 	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
@@ -32,6 +34,8 @@ private:
 	// 6发送屏幕内容
 	// 7锁机
 	// 8解锁
+	// 9删除文件
+	// 1981测试连接
 	// bAutoClose说明：在处理接受文件目录时，可能会接受多个，不能接受一个就close连接，通过此参数来判断关闭时机
 	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0);
 
