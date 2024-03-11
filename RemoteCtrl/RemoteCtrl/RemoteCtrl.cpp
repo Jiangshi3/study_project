@@ -129,9 +129,9 @@ int DownloadFile() {
     fseek(pFile, 0, SEEK_END);
     // data = ftell(pFile);
     data = _ftelli64(pFile);
+	CPacket head(4, (BYTE*)&data, 8);  // head
+	CServerSocket::getInstance()->Send(head);
     fseek(pFile, 0, SEEK_SET);  // 记得要fseek回来
-    CPacket head(4, (BYTE*)&data, 8);  // head
-    CServerSocket::getInstance()->Send(head);
 
     char buffer[1024] = ""; // 建议不要太大，1K就好
     size_t rlen = 0;
