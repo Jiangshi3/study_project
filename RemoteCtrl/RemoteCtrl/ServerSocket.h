@@ -189,7 +189,7 @@ public:
 		if (buffer == NULL) {
 			TRACE("内存不足\r\n");
 		}
-		memset(buffer, 0, BUFFER_SIZE);
+		memset(buffer, 0, BUFFER_SIZE);  // TODO
 		size_t index = 0;
 		while (true) {
 			size_t len = recv(m_clntSock, buffer+index, BUFFER_SIZE-index, 0);  // 缓冲区的处理！！！！！！
@@ -203,7 +203,7 @@ public:
 			if (len > 0)   // 这里的len表示的是：用到的一整块数据包的长度
 			{
 				index -= len; 
-				memmove(buffer, buffer + len, BUFFER_SIZE - len);   // 缓冲区的处理！！！！！！
+				memmove(buffer, buffer + len, index);   // 缓冲区的处理！！！！！！
 				delete[] buffer;
 				return m_packet.sCmd;  // 并返回一个操作指令
 			}
@@ -224,7 +224,7 @@ public:
 	bool Send(CPacket& packet) // 这里不能使用const了，因为packet.Data()会改变成员值
 	{
 		if (m_clntSock == -1) return false;
-		Dump((BYTE*)packet.Data(), packet.Size());
+		// Dump((BYTE*)packet.Data(), packet.Size());
 		return send(m_clntSock, packet.Data(), packet.Size(), 0) > 0; 
 	}
 	bool GetFilePath(std::string& strPath) {

@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+void Dump(BYTE* pData, size_t nSize);
+
 #pragma pack(push, 1)  // 更改对齐方式， 让下面的CPacket类将按照一个字节的边界对齐；
 class CPacket
 {
@@ -63,6 +65,7 @@ public:
 			strData.resize(nLength - 2 - 2); // 注：nLength包括：控制命令、包数据、和校验的长度
 			memcpy((void*)strData.c_str(), (pData + i), (nLength - 2 - 2));  // 读取数据
 			i += (nLength - 4);
+			TRACE("%s\r\n", strData.c_str() + 12);  // 加上FILEINFO结构体的大小(12)???
 		}
 		sSum = *(WORD*)(pData + i);
 		i += 2;
@@ -183,20 +186,23 @@ public:
 		if (m_sock == -1) return -1;
 		// char* buffer = new char[BUFFER_SIZE];
 		char* buffer = m_buffer.data();  // .data() 成员函数返回指向容器中第一个元素的指针
-		memset(buffer, 0, BUFFER_SIZE);
-		size_t index = 0;
+		// memset(buffer, 0, BUFFER_SIZE);  // 不能再这里清空缓冲区！！！
+		static size_t index = 0;  // 这里的index也不能随便置0
 		while (true) {
 			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);  // 缓冲区的处理！！！！！！
-			if (len <= 0) {
+			// recv()返回为0的时候还不能结束：此时缓冲区还有数据
+			if ((len <= 0) && (index <= 0))   // 并且缓冲区为空才退出
+			{
 				return -1;
 			}
+			// Dump((BYTE*)buffer, index);
 			index += len;  // !!!
 			len = index;
 			m_packet = CPacket((BYTE*)buffer, len);  // 这里第二个参数len传入的引用；会改变其值;(所以后面的len的值不一定等于之前的值)
 			if (len > 0)   // 这里的len表示的是：用到的一整块数据包的长度
 			{
 				index -= len;
-				memmove(buffer, buffer + len, BUFFER_SIZE - len);   // 缓冲区的处理！！！！！！
+				memmove(buffer, buffer + len, index);   // 缓冲区的处理！！！！！！
 				return m_packet.sCmd;  // 并返回一个操作指令
 			}
 			// 如果len==0 表示缓冲区还没有一整块数据包，就让继续while循环
@@ -250,6 +256,7 @@ private:
 			exit(0);
 		}
 		m_buffer.resize(BUFFER_SIZE);
+		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
 	CClientSocket(const CClientSocket&) {}              // 禁止拷贝构造
 	CClientSocket& operator=(const CClientSocket&) {}   // 禁止拷贝赋值

@@ -193,7 +193,7 @@ int CRemoteClientDlg::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, 
 
 	pClient->DealCommand();
 	int cmd = pClient->GetPacket().sCmd;
-	TRACE("ack:%d\r\n", cmd);
+	// TRACE("ack:%d\r\n", cmd);
 	if (bAutoClose) {
 		pClient->CloseSocket();  // 要先判断，不能直接断开连接；因为可能要接收多个
 	}
@@ -284,6 +284,7 @@ void CRemoteClientDlg::LoadFileInfo()
 	int nCmd = SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
 	CClientSocket* pClient = CClientSocket::getInstance();
 	PFILEINFO pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
+	int Count = 0;
 	while (pInfo->HasNext) {
 		TRACE("[%s] isdir: %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
 		if (pInfo->IsDirectory) {
@@ -301,13 +302,14 @@ void CRemoteClientDlg::LoadFileInfo()
 		else {
 			m_list.InsertItem(0, pInfo->szFileName);
 		}
-		
+		Count++;
 		int cmd = pClient->DealCommand();
 		TRACE("ack:%d\r\n", cmd);
 		if (cmd < 0)break;
 		pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
 	}
 	pClient->CloseSocket();
+	TRACE("Count: %d\r\n", Count);
 }
 
 void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
@@ -391,6 +393,7 @@ void CRemoteClientDlg::OnDownloadFile()
 		fclose(pFile);
 		pClient->CloseSocket();
 	}	
+	// TODO 大文件传输额外处理
 }
 
 

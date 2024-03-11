@@ -88,6 +88,7 @@ int MakeDirectoryInfo() {
 		OutputDebugString(_T("没有找到任何文件/失败！"));
 		return -3;
     }
+    int Count = 0;
     do{
         FILEINFO finfo; // 默认构造函数的HasNext=TRUE; IsInvalid=FALSE;
         finfo.IsDirectory = (fdata.attrib & _A_SUBDIR) != 0;
@@ -95,12 +96,14 @@ int MakeDirectoryInfo() {
         TRACE("%s\r\n", finfo.szFileName);  
 		CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
 		CServerSocket::getInstance()->Send(pack);  // 发送消息到控制端
+        Count++;
     } while (!_findnext(hfind, &fdata));
     FILEINFO finfo;
     finfo.HasNext = FALSE;
 	CPacket pack(2, (BYTE*)&finfo, sizeof(finfo));
 	CServerSocket::getInstance()->Send(pack);
     _findclose(hfind);  // IADD
+    TRACE(" Server Count: %d\r\n", ++Count);
     return 0;
 }
 
