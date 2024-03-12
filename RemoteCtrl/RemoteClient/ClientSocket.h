@@ -181,7 +181,7 @@ public:
 		return true;
 	}
 
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 409600  // 图片比较大，如果不扩大缓冲区，就一直读不到
 	int DealCommand() {
 		if (m_sock == -1) return -1;
 		// char* buffer = new char[BUFFER_SIZE];
@@ -216,6 +216,7 @@ public:
 	}
 	bool Send(CPacket& packet) // 这里不能使用const了，因为packet.Data()会改变成员值
 	{
+		TRACE("m_sock=%d\r\n", m_sock);
 		if (m_sock == -1) return false;
 		return send(m_sock, packet.Data(), packet.Size(), 0) > 0;
 	}

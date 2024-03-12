@@ -25,6 +25,7 @@ CWatchDialog::~CWatchDialog()
 void CWatchDialog::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_WATCH, m_picture);
 }
 
 
@@ -52,10 +53,16 @@ void CWatchDialog::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (nIDEvent == 0) {
-		CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();
+		CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();  // IDD_DLG_WATCH的父类是IDD_REMOTECLIENT_DIALOG(CRemoteClientDlg)
 		if (pParent->isFull())  // 如果有数据就显示
 		{
-			// TODO 显示
+			CRect rect;
+			m_picture.GetWindowRect(rect);
+			// pParent->GetImage().BitBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, SRCCOPY);
+			pParent->GetImage().StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+			m_picture.InvalidateRect(NULL);
+			pParent->GetImage().Destroy();
+			pParent->SetImageStatus(false);  // 设置m_isFull=false;
 		}
 	}
 
