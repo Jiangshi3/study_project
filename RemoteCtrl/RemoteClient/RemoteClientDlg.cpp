@@ -125,6 +125,8 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	m_dlgStatus.Create(IDD_DLG_STATUS, this);
 	m_dlgStatus.ShowWindow(SW_HIDE);
 
+	m_isFull = false;  // 初始化缓冲没有数据
+
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -353,10 +355,42 @@ void CRemoteClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 }
 
 
+void CRemoteClientDlg::threadEntryWatchData(void* arg)
+{
+	CRemoteClientDlg* thiz = (CRemoteClientDlg*)arg;  // 传递进来的参数是this
+	thiz->threadWatchData();  // 此时就可以通过thiz来调用非静态成员函数了
+	_endthread();
+}
+
+void CRemoteClientDlg::threadWatchData()
+{
+	CClientSocket* pClient = NULL;
+	do {
+		pClient = CClientSocket::getInstance();
+	} while (pClient == NULL);  // 保证pClient不为空，以建立连接  ************** 【学习这种写法】
+	for (;;) {
+		CPacket pack(6, NULL, 0);
+		bool ret = pClient->Send(pack);
+		if (ret) {
+			int cmd = pClient->DealCommand();
+			if (cmd == 6) {
+				if (m_isFull == false) {
+					BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
+					// TODO 存入CImage
+					m_isFull = true;
+				}
+			}
+		}
+		else {
+			Sleep(1); // 防止Send()失败后，在死循环里面瞬间拉满  ************** 【学习这种思想】
+		}
+	}
+}
+
 void CRemoteClientDlg::threadEntryDownFile(void* arg)
 {
-	CRemoteClientDlg* thiz = (CRemoteClientDlg*)arg;
-	thiz->threadDownFile();
+	CRemoteClientDlg* thiz = (CRemoteClientDlg*)arg;  // 传递进来的参数是this
+	thiz->threadDownFile();  // 此时就可以通过thiz来调用非静态成员函数了
 	_endthread();
 }
 
