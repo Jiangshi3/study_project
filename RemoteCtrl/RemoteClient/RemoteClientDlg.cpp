@@ -7,6 +7,7 @@
 #include "RemoteClient.h"
 #include "RemoteClientDlg.h"
 #include "afxdialogex.h"
+#include "WatchDialog.h"
 // #include "ClientSocket.h"
 
 #ifdef _DEBUG
@@ -81,6 +82,8 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
 	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
 	ON_MESSAGE(WM_SEND_PACKET, &CRemoteClientDlg::OnSendPACKET)  // 注册消息③  告诉消息的响应函数
+	ON_BN_CLICKED(IDC_BTN_START_WATCH, &CRemoteClientDlg::OnBnClickedBtnStartWatch)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -374,10 +377,25 @@ void CRemoteClientDlg::threadWatchData()
 		if (ret) {
 			int cmd = pClient->DealCommand();
 			if (cmd == 6) {
-				if (m_isFull == false) {
-					BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
-					// TODO 存入CImage
-					m_isFull = true;
+				if (m_isFull == false) {  // 更新数据到m_image缓存
+					BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();					
+					HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, 0);  // 使用 GlobalAlloc() 分配一个可移动的全局内存块，并将句柄存储在 hMem 中
+					if (hMem == NULL) {
+						TRACE(_T("内存不足！"));
+						Sleep(1);  // 注意在死循环内部，最好要添加Sleep()防止拉满
+						continue;
+					}
+					IStream* pStream = NULL;
+					HRESULT hRet = CreateStreamOnHGlobal(hMem, TRUE, &pStream);  // 调用 CreateStreamOnHGlobal() 函数，将全局内存块转换为一个流对象，并将结果存储在 pStream 中
+					if (hRet == S_OK) {
+						ULONG length = 0;
+						pStream->Write(pData, pClient->GetPacket().strData.size(), &length);  // 将字节数据写入流中
+						LARGE_INTEGER bg = { 0 };  // 用于在流中设置指针位置
+						pStream->Seek(bg, STREAM_SEEK_SET, NULL);  // 将流的指针位置设置为起始位置，以便后续读取操作。
+						m_image.Load(pStream);  // 将图像从数据流中解析并加载到 m_image 对象中
+						m_isFull = true;
+					}
+	
 				}
 			}
 		}
@@ -494,4 +512,21 @@ LRESULT CRemoteClientDlg::OnSendPACKET(WPARAM wParam, LPARAM lParam)
 	// int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 	int ret = SendCommandPacket(wParam>>1, wParam&1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 	return ret;
+}
+
+
+void CRemoteClientDlg::OnBnClickedBtnStartWatch()
+{
+	_beginthread(CRemoteClientDlg::threadEntryWatchData, 0, this);
+	// GetDlgItem(IDC_BTN_START_WATCH)->EnableWindow(FALSE);  // 防止连续点击多次
+	CWatchDialog dlg(this);
+	dlg.DoModal();  // 模态对话框
+}
+
+
+void CRemoteClientDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+
+	CDialogEx::OnTimer(nIDEvent);
 }
