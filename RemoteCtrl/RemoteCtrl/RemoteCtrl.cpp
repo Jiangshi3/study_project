@@ -166,6 +166,9 @@ int MouseEvent() {
         case 3:  // 没有按键(鼠标移动)，也就没有对应的mouse.nAction
             nFlags = 8;
             break;
+        default:
+            nFlags = 8;
+            break;
         }
         if (nFlags != 8) SetCursorPos(mouse.ptXY.x, mouse.ptXY.y); // SetCursorPos()用于设置鼠标的位置
         switch (mouse.nAction) {
@@ -181,9 +184,12 @@ int MouseEvent() {
         case 3:  // 放开
             nFlags |= 0x80;
             break;
+        case 4:  // 鼠标移动
+            break;
 		default:
 			break;
         }
+        TRACE("nFlages:%08X x:%d, y:%d\r\n", nFlags, mouse.ptXY.x, mouse.ptXY.y);
         switch (nFlags)
         {
 		case 0x21:  // 左键双击

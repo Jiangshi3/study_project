@@ -181,7 +181,7 @@ public:
 		return true;
 	}
 
-#define BUFFER_SIZE 409600  // 图片比较大，如果不扩大缓冲区，就一直读不到
+#define BUFFER_SIZE 2048000  // 图片比较大，如果不扩大缓冲区，就一直读不到
 	int DealCommand() {
 		if (m_sock == -1) return -1;
 		// char* buffer = new char[BUFFER_SIZE];

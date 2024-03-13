@@ -411,6 +411,17 @@ void CRemoteClientDlg::threadWatchData()
 	}
 }
 
+void CRemoteClientDlg::OnDownloadFile()
+{
+	_beginthread(CRemoteClientDlg::threadEntryDownFile, 0, this);  // 线程
+	BeginWaitCursor();  // 把光标设置为等待(沙漏)状态
+	m_dlgStatus.m_info.SetWindowText(_T("命令正在执行中！"));
+	m_dlgStatus.ShowWindow(SW_SHOW);
+	m_dlgStatus.CenterWindow(this);  // 居中
+	m_dlgStatus.SetActiveWindow();
+	// Sleep(50); // 确保线程开启
+}
+
 void CRemoteClientDlg::threadEntryDownFile(void* arg)
 {
 	CRemoteClientDlg* thiz = (CRemoteClientDlg*)arg;  // 传递进来的参数是this
@@ -469,16 +480,6 @@ void CRemoteClientDlg::threadDownFile()
 	MessageBox(_T("下载完成"), _T("完成"));
 }
 
-void CRemoteClientDlg::OnDownloadFile()
-{
-	_beginthread(CRemoteClientDlg::threadEntryDownFile, 0, this);  // 线程
-	BeginWaitCursor();  // 把光标设置为等待(沙漏)状态
-	m_dlgStatus.m_info.SetWindowText(_T("命令正在执行中！"));
-	m_dlgStatus.ShowWindow(SW_SHOW);
-	m_dlgStatus.CenterWindow(this);  // 居中
-	m_dlgStatus.SetActiveWindow();
-	// Sleep(50); // 确保线程开启
-}
 
 
 void CRemoteClientDlg::OnDeleteFile()
@@ -523,6 +524,9 @@ LRESULT CRemoteClientDlg::OnSendPACKET(WPARAM wParam, LPARAM lParam)
 			// int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 			ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
 		}
+		break;
+	case 5:  // 鼠标
+		ret = SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
 		break;
 	case 6:   // 监控屏幕
 		ret = SendCommandPacket(cmd, wParam & 1);
