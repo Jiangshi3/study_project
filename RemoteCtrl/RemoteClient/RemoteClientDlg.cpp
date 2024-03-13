@@ -360,9 +360,12 @@ void CRemoteClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 
 void CRemoteClientDlg::OnBnClickedBtnStartWatch()
 {
+	m_isClosed = false;  // 保证只有一个线程
 	CWatchDialog dlg(this);
-	_beginthread(CRemoteClientDlg::threadEntryWatchData, 0, this);
+	HANDLE hThread = (HANDLE)_beginthread(CRemoteClientDlg::threadEntryWatchData, 0, this);
 	dlg.DoModal();  // 模态对话框
+	m_isClosed = true;
+	WaitForSingleObject(hThread, 500);  // 等待先前启动的线程结束，或者超时后继续执行; 它等待线程结束最多500毫秒。
 }
 
 void CRemoteClientDlg::threadEntryWatchData(void* arg)
@@ -379,7 +382,7 @@ void CRemoteClientDlg::threadWatchData()
 	do {
 		pClient = CClientSocket::getInstance();
 	} while (pClient == NULL);  // 保证pClient不为空，以建立连接  ************** 【学习这种写法】
-	for (;;) {
+	while(!m_isClosed) {
 		if (m_isFull == false) {  // 更新数据到m_image缓存
 			int ret = SendMessage(WM_SEND_PACKET, 6 << 1 | 1);
 			if (ret == 6) {
@@ -397,6 +400,7 @@ void CRemoteClientDlg::threadWatchData()
 					pStream->Write(pData, pClient->GetPacket().strData.size(), &length);  // 将字节数据写入流中
 					LARGE_INTEGER bg = { 0 };  // 用于在流中设置指针位置
 					pStream->Seek(bg, STREAM_SEEK_SET, NULL);  // 将流的指针位置设置为起始位置，以便后续读取操作。
+					if ((HBITMAP)m_image != NULL) m_image.Destroy();
 					m_image.Load(pStream);  // 将图像从数据流中解析并加载到 m_image 对象中
 					m_isFull = true;
 				}

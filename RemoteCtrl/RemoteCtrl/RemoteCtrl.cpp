@@ -258,7 +258,7 @@ int SendScreen() {
     int nWidth = GetDeviceCaps(hScreen, HORZRES);          // HORZRES参数表示屏幕水平分辨率，即屏幕的宽度
 	int nHeight = GetDeviceCaps(hScreen, VERTRES);       
 	screen.Create(nWidth, nHeight, nBitPerPixel); // 使用CImage对象的Create方法创建一个位图
-    BitBlt(screen.GetDC(), 0, 0, 2560, 1440, hScreen, 0, 0, SRCCOPY);  // 使用BitBlt函数将屏幕内容复制到创建的位图中
+    BitBlt(screen.GetDC(), 0, 0, nWidth, nHeight, hScreen, 0, 0, SRCCOPY);  // 使用BitBlt函数将屏幕内容复制到创建的位图中
     // 2560×1440   1920×1080
     ReleaseDC(NULL, hScreen);
 

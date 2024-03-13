@@ -17,6 +17,10 @@ public:
 	enum { IDD = IDD_DLG_WATCH };
 #endif
 
+public:
+	int m_nObjWidth;  // 对方屏幕的宽
+	int m_nObjHeight; // 对方屏幕的高
+
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
 
@@ -34,4 +38,5 @@ public:
 	afx_msg void OnRButtonDblClk(UINT nFlags, CPoint point);
 	afx_msg void OnMouseMove(UINT nFlags, CPoint point);
 	afx_msg void OnStnClickedWatch();
+	virtual void OnOK();
 };

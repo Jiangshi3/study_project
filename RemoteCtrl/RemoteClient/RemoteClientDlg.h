@@ -37,6 +37,7 @@ public:
 private:
 	CImage m_image; // 缓存
 	bool m_isFull;  // 缓存是否有数据； true:有数据； false:没有数据
+	bool m_isClosed; // 监视线程是否关闭
 private:
 	static void threadEntryWatchData(void* arg);  // 静态成员函数没有this指针，不能访问成员变量、方法
 	void threadWatchData();  // 成员函数可以使用this指针
