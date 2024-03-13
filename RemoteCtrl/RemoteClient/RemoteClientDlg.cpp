@@ -535,6 +535,19 @@ LRESULT CRemoteClientDlg::OnSendPACKET(WPARAM wParam, LPARAM lParam)
 	case 6:   // 监控屏幕
 		ret = SendCommandPacket(cmd, wParam & 1);
 		break;
+	case 7:  // 锁机
+		ret = SendCommandPacket(cmd, wParam & 1);
+		break;
+	case 8:  // 解锁
+		ret = SendCommandPacket(cmd, wParam & 1);
+		break;
+/*
+	case 6:
+	case 7:
+	case 8:
+		ret = SendCommandPacket(cmd, wParam & 1);
+		break;
+*/
 	default:
 		ret = -1;
 		break;

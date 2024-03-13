@@ -314,6 +314,19 @@ unsigned __stdcall threadLockDlg(void* arg)
 	// TRACE("right:%d, bottom:%d\r\n", rect.right, rect.bottom);
 	dlg.MoveWindow(&rect);
 
+    // 让IDC_STATIC居中显示
+    CWnd* pText = dlg.GetDlgItem(IDC_STATIC);
+    if (pText) {
+        CRect rtText;
+        pText->GetWindowRect(rtText);
+        int nWidth = rtText.Width();
+        int nHeight = rtText.Height();
+        int x = (rect.right - nWidth) / 2;
+        int y = (rect.bottom - nHeight) / 2;
+        pText->MoveWindow(x, y, nWidth, nHeight);
+    }
+
+
 	// 窗口置顶
 	dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE); // 不要改变大小|不要移动
 	// 限制鼠标功能
@@ -340,7 +353,9 @@ unsigned __stdcall threadLockDlg(void* arg)
 			}
 		}
 	}
+    // 恢复鼠标
 	ShowCursor(true);
+    ClipCursor(NULL);
 	::ShowWindow(::FindWindow(_T("Shell_TrayWnd"), NULL), SW_SHOW); // 显示系统任务栏
     dlg.DestroyWindow();
     _endthreadex(0);

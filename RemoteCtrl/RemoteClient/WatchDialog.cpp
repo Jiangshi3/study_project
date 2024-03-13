@@ -40,6 +40,8 @@ BEGIN_MESSAGE_MAP(CWatchDialog, CDialog)
 	ON_WM_RBUTTONDBLCLK()
 	ON_WM_MOUSEMOVE()
 	ON_STN_CLICKED(IDC_WATCH, &CWatchDialog::OnStnClickedWatch)
+	ON_BN_CLICKED(IDC_BTN_LOCK, &CWatchDialog::OnBnClickedBtnLock)
+	ON_BN_CLICKED(IDC_BTN_UNLOCK, &CWatchDialog::OnBnClickedBtnUnlock)
 END_MESSAGE_MAP()
 
 
@@ -213,8 +215,8 @@ void CWatchDialog::OnMouseMove(UINT nFlags, CPoint point)  // 这种拿到的是
 		event.nButton = 3;  // 没有按键
 		event.nAction = 4;  // 鼠标移动
 
-		CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();
-		pParent->SendMessage(WM_SEND_PACKET, 5 << 1 | 1, LPARAM(&event));
+		//CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();
+		//pParent->SendMessage(WM_SEND_PACKET, 5 << 1 | 1, LPARAM(&event));
 	}
 	CDialog::OnMouseMove(nFlags, point);
 }
@@ -246,4 +248,18 @@ void CWatchDialog::OnOK()
 	// TODO: 在此添加专用代码和/或调用基类
 
 	// CDialog::OnOK();  // 防止监视界面按下回车键后关闭
+}
+
+
+void CWatchDialog::OnBnClickedBtnLock()
+{
+		CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();
+		pParent->SendMessage(WM_SEND_PACKET, 7 << 1 | 1);
+}
+
+
+void CWatchDialog::OnBnClickedBtnUnlock()
+{
+	CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();
+	pParent->SendMessage(WM_SEND_PACKET, 8 << 1 | 1);
 }
