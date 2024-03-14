@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XPD:PROJECT xmlns:XPD="http://www.staruml.com" version="1">
+<XPD:HEADER>
+<XPD:SUBUNITS>
+</XPD:SUBUNITS>
+<XPD:PROFILES>
+</XPD:PROFILES>
+</XPD:HEADER>
+<XPD:BODY>
+<XPD:OBJ name="DocumentElement" type="UMLProject" guid="TEOGQXMjtkqRlbXxGhlNogAA">
+<XPD:ATTR name="Documentation" type="string">该系统包括两个部分：
+a 远程控制服务器
+b 请求控制客户端
+对于远程控制服务器，有下列功能：
+1.文件操作（查询、删除、下载、运行）
+2.屏幕控制（监视、鼠标、锁定、解锁）
+对于请求控制客户端，有下列功能：
+1.发起控制请求（文件操作，屏幕操作）
+2.显示控制结果（应答反馈、监视画面显示）
+3.与远程桌面进行交互（鼠标、加锁/解锁）</XPD:ATTR>
+<XPD:ATTR name="Title" type="string">远程控制系统设计</XPD:ATTR>
+<XPD:ATTR name="Author" type="string">Js</XPD:ATTR>
+<XPD:ATTR name="#OwnedElements" type="integer">2</XPD:ATTR>
+<XPD:OBJ name="OwnedElements[0]" type="UMLPackage" guid="F4nmI3YFRES20loIuYDXBwAA">
+<XPD:ATTR name="Name" type="string">RemoteCtl</XPD:ATTR>
+<XPD:REF name="Namespace">TEOGQXMjtkqRlbXxGhlNogAA</XPD:REF>
+<XPD:ATTR name="#OwnedElements" type="integer">1</XPD:ATTR>
+<XPD:OBJ name="OwnedElements[0]" type="UMLClass" guid="o1LXAySUAkOMny15IlglqwAA">
+<XPD:ATTR name="Name" type="string">global</XPD:ATTR>
+<XPD:ATTR name="Documentation" type="string">此类中的函数/变量均是全局函数，
+全部为公有函数/变量</XPD:ATTR>
+<XPD:REF name="Namespace">F4nmI3YFRES20loIuYDXBwAA</XPD:REF>
+</XPD:OBJ>
+</XPD:OBJ>
+<XPD:OBJ name="OwnedElements[1]" type="UMLPackage" guid="E+nIfP7A6kCC3DoKJDDA/gAA">
+<XPD:ATTR name="Name" type="string">RemoteClient</XPD:ATTR>
+<XPD:REF name="Namespace">TEOGQXMjtkqRlbXxGhlNogAA</XPD:REF>
+</XPD:OBJ>
+</XPD:OBJ>
+</XPD:BODY>
+</XPD:PROJECT>

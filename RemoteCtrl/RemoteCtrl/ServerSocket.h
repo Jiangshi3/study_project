@@ -124,12 +124,12 @@ public:
 typedef struct file_info {
 	file_info()  // 结构体里面也可以构造函数
 	{
-		IsInvaild = FALSE;
+		IsInvalid = FALSE;
 		IsDirectory = -1;
 		HasNext = TRUE;
 		memset(szFileName, 0, sizeof(szFileName));
 	}
-	BOOL IsInvaild;       // 是否无效    
+	BOOL IsInvalid;       // 是否无效    
 	BOOL IsDirectory;     // 是否为目录  0否，1是
 	BOOL HasNext;         // 是否还有后续 
 	char szFileName[256]; // 文件名
@@ -263,8 +263,8 @@ private:
 		}
 		m_servSock = socket(PF_INET, SOCK_STREAM, 0);
 	}
-	CServerSocket(const CServerSocket&) {}              // 禁止拷贝构造
-	CServerSocket& operator=(const CServerSocket&) {}   // 禁止拷贝赋值
+	CServerSocket(const CServerSocket& ss) {}              // 禁止拷贝构造
+	CServerSocket& operator=(const CServerSocket& ss) {}   // 禁止拷贝赋值
 	~CServerSocket() {
 		closesocket(m_servSock);
 		WSACleanup();
