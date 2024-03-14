@@ -308,14 +308,14 @@ unsigned __stdcall threadLockDlg(void* arg)
 	CRect rect;
 	rect.left = 0;
 	rect.top = 0;
-	rect.right = GetSystemMetrics(SM_CXFULLSCREEN);
+	rect.right = GetSystemMetrics(SM_CXFULLSCREEN);  // GetSystemMetrics() 用于获取系统的各种度量信息
 	rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
 	rect.bottom *= 1.03;
 	// TRACE("right:%d, bottom:%d\r\n", rect.right, rect.bottom);
-	dlg.MoveWindow(&rect);
+	dlg.MoveWindow(&rect);  //MoveWindow() 用于移动窗口, 参数指定窗口的新位置和大小
 
     // 让IDC_STATIC居中显示
-    CWnd* pText = dlg.GetDlgItem(IDC_STATIC);
+    CWnd* pText = dlg.GetDlgItem(IDC_STATIC);  // GetDlgItem() 用于获取对话框中具有指定标识符的控件的指针
     if (pText) {
         CRect rtText;
         pText->GetWindowRect(rtText);
@@ -325,7 +325,6 @@ unsigned __stdcall threadLockDlg(void* arg)
         int y = (rect.bottom - nHeight) / 2;
         pText->MoveWindow(x, y, nWidth, nHeight);
     }
-
 
 	// 窗口置顶
 	dlg.SetWindowPos(&dlg.wndTopMost, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE); // 不要改变大小|不要移动
