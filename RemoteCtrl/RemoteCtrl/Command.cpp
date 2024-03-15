@@ -25,7 +25,7 @@ CCommand::CCommand():threadid(0)
 	}
 }
 
-int CCommand::ExcuteCommand(int nCmd)
+int CCommand::ExcuteCommand(int nCmd, std::list<CPacket>&lstPacket, CPacket& inPacket)
 {
 	std::map<int, CMDFUNC>::iterator it = m_mapFunction.find(nCmd);
 	if (it == m_mapFunction.end()) {
@@ -34,6 +34,6 @@ int CCommand::ExcuteCommand(int nCmd)
 	// it->second 是一个成员函数指针，不能直接调用。
 	// 如果你有一个指向成员函数的指针，你必须使用对象或对象指针以及成员函数指针运算符 ->* 或 .* 来调用该函数
 	// return (this->*it->second)();  // 可以
-	return (this->*(it->second))();
+	return (this->*(it->second))(lstPacket, inPacket);
 	// return it->second();  错误
 }

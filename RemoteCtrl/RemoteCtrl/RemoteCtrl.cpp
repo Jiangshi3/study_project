@@ -16,26 +16,16 @@
 // #pragma comment(linker, "/subsystem:console /entry:mainCRTStartup")     // 控制台   
 // #pragma comment(linker, "/subsystem:console /entry:WinMainCRTStartup")  // 控制台  （这里启动后又会有窗口）
 
-
 // git branch -main
-
 // 唯一的应用程序对象
 
 CWinApp theApp;
-
 using namespace std;
-
-
-
-
-
-
 
 int main()
 {
     int nRetCode = 0;
     HMODULE hModule = ::GetModuleHandle(nullptr);
-
     if (hModule != nullptr)
     {
         // 初始化 MFC 并在失败时显示错误
@@ -48,36 +38,18 @@ int main()
         else
         {
             CCommand cmd;
-            // TODO: socket、bind、listen、accept、read、write
             int count = 0;
-            CServerSocket* pServer = CServerSocket::getInstance();  // 单例
-			if (pServer->InitSocket() == false) {
+            int ret = CServerSocket::getInstance()->Run(&CCommand::RunCommand, &cmd);  // cmd是一个命令类对象
+            switch (ret) {
+            case -1:
 				MessageBox(NULL, _T("网络初始化异常，请检查网络状态"), _T("网络初始化failed"), MB_OK | MB_ICONERROR);
 				exit(0);
-			}
-            while(pServer!=NULL){    
-                if (pServer->AcceptClient() == false) {
-                    pServer = CServerSocket::getInstance();
-                    if (count >= 3) {
-						MessageBox(NULL, _T("多次无法正常接入用户，结束程序"), _T("接入用户failed"), MB_OK | MB_ICONERROR);
-						exit(0);
-                    }
-					MessageBox(NULL, _T("无法正常接入用户，自动重试"), _T("接入用户failed"), MB_OK | MB_ICONERROR);
-                    count++;
-                }
-                int ret = pServer->DealCommand(); // 如果正确的话返回的是一个操作指令；
-                if (ret != -1)   // TODO  
-                {
-                    ret = cmd.ExcuteCommand(ret);
-                    if (ret != 0) // 在处理命令的函数中，正确就返回0
-                    {
-                        TRACE("执行命令失败：%d, ret=%d\r\n", pServer->GetPacket().sCmd, ret);
-                    }
-                    // 采用短连接（如果采用长连接就不需要close）
-                    pServer->CloseClient();   
-                    TRACE("Command has done!\r\n");
-                }
-            }     
+                break;
+            case -2:
+				MessageBox(NULL, _T("多次无法正常接入用户，结束程序"), _T("接入用户failed"), MB_OK | MB_ICONERROR);
+				exit(0);
+                break;
+            }
         }
     }
     else
@@ -86,6 +58,5 @@ int main()
         wprintf(L"错误: GetModuleHandle 失败\n");
         nRetCode = 1;
     }
-
     return nRetCode;
 }
