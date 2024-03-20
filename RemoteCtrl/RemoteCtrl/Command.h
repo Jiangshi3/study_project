@@ -16,7 +16,7 @@ class CCommand
 public:
 	CCommand();
 	~CCommand() {}
-	int ExcuteCommand(int nCmd, std::list<CPacket>&, CPacket& inPacket);
+	int ExcuteCommand(int nCmd, std::list<CPacket>& lstPacket, CPacket& inPacket);
     static void RunCommand(void* arg, int status, std::list<CPacket>&lstPacket, CPacket& inPacket) {
         CCommand* thiz = (CCommand*)arg;
         if (status > 0) {
@@ -118,7 +118,7 @@ protected:
         size_t rlen = 0;
         do {
             rlen = fread(buffer, 1, 1024, pFile);
-            lstPacket.push_back(CPacket(4, (BYTE*)&data, rlen));
+            lstPacket.push_back(CPacket(4, (BYTE*)buffer, rlen));  // 一开始写成了：lstPacket.push_back(CPacket(4, (BYTE*)&data, rlen));
         } while (rlen >= 1024);
         lstPacket.push_back(CPacket(4, NULL, 0));
         fclose(pFile); // 记得关闭

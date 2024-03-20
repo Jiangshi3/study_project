@@ -121,7 +121,8 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	// TODO: 在此添加额外的初始化代码
 	// 设置IP地址、端口的初始化
 	UpdateData();
-	m_server_address = 0x7F000001;  // 127.0.0.1
+	// m_server_address = 0x7F000001;  // 127.0.0.1
+	m_server_address = 0xC0A8EDB1;  //  192.168.237.177
 	m_nPort = _T("9527");
 	UpdateData(FALSE);
 
@@ -198,11 +199,12 @@ int CRemoteClientDlg::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, 
 		return -1;
 	}
 	CPacket pack(nCmd, pData, nLength);
-	pClient->Send(pack);
+	int send_ret = pClient->Send(pack);
+	TRACE("Send ret:%d\r\n", send_ret);
 
 	pClient->DealCommand();
 	int cmd = pClient->GetPacket().sCmd;
-	// TRACE("ack:%d\r\n", cmd);
+	TRACE("ack:%d\r\n", cmd);
 	if (bAutoClose) {
 		pClient->CloseSocket();  // 要先判断，不能直接断开连接；因为可能要接收多个
 	}

@@ -8,6 +8,6 @@
 CServerSocket* CServerSocket::m_instance = NULL;  // 静态成员函数显示初始化
 // 声明：static CHelper m_helper;
 CServerSocket::CHelper CServerSocket::m_helper;   // 实现
-// CServerSocket* pServer = CServerSocket::getInstance(); 
+CServerSocket* pServer = CServerSocket::getInstance();   // 这里不能注释?，是饿汉模式；【好像也可以注释掉，因为有上面的m_helper】
 
 

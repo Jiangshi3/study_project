@@ -102,9 +102,6 @@ protected:
 		return -1;
 	}
 
-	CPacket& GetPacket() {
-		return m_packet;
-	}
 
 	bool Send(const char* msg, int nSize) {
 		if (m_clntSock == -1) return false;
@@ -116,23 +113,7 @@ protected:
 		// Dump((BYTE*)packet.Data(), packet.Size());
 		return send(m_clntSock, packet.Data(), packet.Size(), 0) > 0; 
 	}
-	bool GetFilePath(std::string& strPath) {
-		// if((m_packet.sCmd >= 2)&&(m_packet.sCmd <= 4))
-		if ((m_packet.sCmd == 2) || (m_packet.sCmd == 3) || (m_packet.sCmd == 4) || (m_packet.sCmd == 9)) 
-		{
-			strPath = m_packet.strData;
-			return true;
-		}
-		return false;		
-	}
-	bool GetMouseEvent(MOUSEEV& mouse)  // 鼠标：移动，单击，右击，双击；需要一个结构体；
-	{
-		if (m_packet.sCmd == 5) {
-			memcpy(&mouse, m_packet.strData.c_str(), sizeof(MOUSEEV));
-			return true;
-		}
-		return false;
-	}
+
 
 	void CloseClient() {
 		if (m_clntSock != INVALID_SOCKET) {
