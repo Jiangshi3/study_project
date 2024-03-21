@@ -261,8 +261,8 @@ private:
 		m_buffer.resize(BUFFER_SIZE);
 		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
-	CClientSocket(const CClientSocket&) {}              // ½ûÖ¹¿½±´¹¹Ôì
-	CClientSocket& operator=(const CClientSocket&) {}   // ½ûÖ¹¿½±´¸³Öµ
+	CClientSocket(const CClientSocket& ss) {}              // ½ûÖ¹¿½±´¹¹Ôì
+	CClientSocket& operator=(const CClientSocket& ss) {}   // ½ûÖ¹¿½±´¸³Öµ
 	~CClientSocket() {
 		closesocket(m_sock);
 		WSACleanup();
