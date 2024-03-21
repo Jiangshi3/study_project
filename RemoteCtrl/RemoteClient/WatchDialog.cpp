@@ -215,8 +215,8 @@ void CWatchDialog::OnMouseMove(UINT nFlags, CPoint point)  // 这种拿到的是
 		event.nButton = 3;  // 没有按键
 		event.nAction = 4;  // 鼠标移动
 
-		//CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();
-		//pParent->SendMessage(WM_SEND_PACKET, 5 << 1 | 1, LPARAM(&event));
+		CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();
+		pParent->SendMessage(WM_SEND_PACKET, 5 << 1 | 1, LPARAM(&event));
 	}
 	CDialog::OnMouseMove(nFlags, point);
 }
