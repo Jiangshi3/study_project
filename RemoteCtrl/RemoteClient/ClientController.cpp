@@ -43,12 +43,108 @@ int CClientController::Invoke(CWnd*& pMainWnd)
 
 LRESULT CClientController::SendMessage(MSG msg)
 {
-	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);  // 返回一个唯一的事件对象
+	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);  // 返回一个唯一的事件对象; 该对象会在稍后用于线程同步
 	if (hEvent == NULL)return -2;
-	MSGINFO info(msg);
+	MSGINFO info(msg);  // 用于包装 MSG 结构体以便在不同线程之间传递。
 	PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM) & info, (LPARAM) & hEvent);
 	WaitForSingleObject(hEvent, -1);
+	/*
+		等待事件对象 hEvent 被置为 signaled 状态。-1 表示无限等待，直到事件对象状态变为 signaled;
+		这意味着程序将在此处阻塞，直到目标线程处理完消息并设置了事件对象状态。
+	*/
 	return info.result;
+}
+
+
+void CClientController::threadDownloadFileEntry(void* arg)
+{
+	CClientController* thiz = (CClientController*)arg;
+	thiz->threadDownloadFile();
+	_endthread();
+}
+
+void CClientController::threadDownloadFile()
+{
+	FILE* pFile = fopen(m_strLocal, "wb+");
+	if (pFile == NULL) {
+		AfxMessageBox(_T("本地没有权限保存该文件，或者文件无法创建！"));
+		m_statusDlg.ShowWindow(SW_HIDE);
+		m_remoteDlg.EndWaitCursor();
+		return;
+	}
+	CClientSocket* pClient = CClientSocket::getInstance();
+	do {
+		int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+		if (ret < 0) {
+			AfxMessageBox("执行下载文件失败！");
+			TRACE("执行下载文件失败：ret=%d\r\n", ret);
+			break;
+		}
+		int nLength = *(long long*)pClient->GetPacket().strData.c_str();
+		if (nLength == 0) {
+			AfxMessageBox("文件长度为0或无法读取文件！");
+			break;
+		}
+		long long nCount = 0;
+		while (nCount < nLength) {
+			ret = DealCommand();
+			if (ret < 0) {
+				AfxMessageBox("传输文件失败！");
+				TRACE("传输文件失败：ret=%d\r\n", ret);
+				break;
+			}
+			fwrite(pClient->GetPacket().strData.c_str(), 1, pClient->GetPacket().strData.size(), pFile);
+			nCount += pClient->GetPacket().strData.size();
+		}	
+	} while (false);
+	fclose(pFile);
+	CloseSocket();
+	m_statusDlg.ShowWindow(SW_HIDE);
+	m_remoteDlg.EndWaitCursor();
+	m_remoteDlg.MessageBox(_T("下载完成"), _T("完成"));
+}
+
+
+void CClientController::StartWatchScreen()
+{
+	m_isClosed = true;  // 保证只有一个线程
+	CWatchDialog dlg(&m_remoteDlg);
+	m_hThreadWatch = (HANDLE)_beginthread(&CClientController::threadWatchScreenEntry, 0, this);
+	dlg.DoModal();  // 模态对话框
+	m_isClosed = true;
+	WaitForSingleObject(m_hThreadWatch, 500);  // 等待先前启动的线程结束，或者超时后继续执行; 它等待线程结束最多500毫秒。
+}
+
+void CClientController::threadWatchScreenEntry(void* arg)
+{
+	CClientController* thiz = (CClientController*)arg;
+	thiz->threadWatchScreen();
+	_endthread();
+}
+
+void CClientController::threadWatchScreen()
+{
+	Sleep(50);
+	while (!m_isClosed) {
+		if (m_remoteDlg.isFull() == false) {  // 更新数据到m_image缓存
+			int ret = SendCommandPacket(6); // SendCommandPacket()设置了默认值
+			if (ret == 6) {
+				if (GetImage(m_remoteDlg.GetImage()) == 0)   // 在m_remoteDlg中的GetImage()返回的是引用；
+				{
+					m_remoteDlg.SetImageStatus(true);  // 设置m_isFull = true;
+				}
+				else {
+					TRACE("获取图片失败!\r\n");
+				}
+			}
+			else {
+				Sleep(1);
+			}
+		}
+		else {
+			Sleep(1); // 防止Send()失败后，在死循环里面瞬间拉满  ************** 【学习这种思想】
+		}
+	}
 }
 
 unsigned __stdcall CClientController::threadEntry(void* arg)
@@ -90,12 +186,16 @@ void CClientController::threadFunc()
 
 LRESULT CClientController::OnSendPack(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {
-	return LRESULT();
+	CClientSocket* pClient = CClientSocket::getInstance();
+	CPacket* pPacket = (CPacket*)wParam;
+	return pClient->Send(*pPacket);
 }
 
 LRESULT CClientController::OnSendData(UINT nMsg, WPARAM wParam, LPARAM lParam)
 {
-	return LRESULT();
+	CClientSocket* pClient = CClientSocket::getInstance();
+	char* pBuffer = (char*)wParam;
+	return pClient->Send(pBuffer, (int)lParam);
 }
 
 LRESULT CClientController::OnShowStatus(UINT nMsg, WPARAM wParam, LPARAM lParam)

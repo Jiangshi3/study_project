@@ -96,7 +96,7 @@ public:
 	int Size() {  // 获得整个包的大小
 		return nLength + 4 + 2;
 	}
-	const char* Data() {
+	const char* Data(std::string& strOut) const{
 		strOut.resize(nLength + 6);
 		BYTE* pData = (BYTE*)strOut.c_str();  // 声明一个指针，指向strOut；
 		*(WORD*)pData = sHead; pData += 2;
@@ -113,7 +113,7 @@ public:
 	WORD        sCmd;    // 控制命令 (考虑对齐)                   2字节
 	std::string strData; // 包数据                             
 	WORD        sSum;    // 和校验                                2字节
-	std::string strOut;  // 整个包的数据
+	// std::string strOut;  // 整个包的数据
 };
 #pragma pack(pop)
 
@@ -152,14 +152,14 @@ class CClientSocket
 {
 public:
 	static CClientSocket* getInstance() {
-		// 静态成员函数没有this指针，只能方位静态成员变量；m_instance为静态成员变量
+		// 静态成员函数没有this指针，只能访问静态成员变量；m_instance为静态成员变量
 		if (m_instance == NULL)  // 单例；此时是线程安全的，不需要mutex；因为是在main之前执行的。
 		{
 			m_instance = new CClientSocket();
 		}
 		return m_instance;
 	}
-	bool InitSocket(int nIP, int nPort) {
+	bool InitSocket() {
 		if (m_sock != INVALID_SOCKET) CloseSocket();
 		m_sock = socket(PF_INET, SOCK_STREAM, 0);
 		// TRACE("m_sock：%d\r\n", m_sock);
@@ -167,8 +167,8 @@ public:
 		sockaddr_in serv_addr;
 		memset(&serv_addr, 0, sizeof(serv_addr));
 		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_addr.s_addr = htonl(nIP);
-		serv_addr.sin_port = htons(nPort);
+		serv_addr.sin_addr.s_addr = htonl(m_nIP);
+		serv_addr.sin_port = htons(m_nPort);
 		// TRACE("nIP：%08x  nPort:%d\r\n", nIP, nPort);
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
 			AfxMessageBox("指定的ip地址不存在");
@@ -216,11 +216,12 @@ public:
 		if (m_sock == -1) return false;
 		return send(m_sock, msg, nSize, 0) > 0;
 	}
-	bool Send(CPacket& packet) // 这里不能使用const了，因为packet.Data()会改变成员值
+	bool Send(const CPacket& packet) // 修改了，可以用const，packet.Data()不会改变成员值；而是传入了一个参数
 	{
 		TRACE("m_sock=%d\r\n", m_sock);
 		if (m_sock == -1) return false;
-		return send(m_sock, packet.Data(), packet.Size(), 0) > 0;
+		std::string strOut;  // 经过packet.Data(strOut)得到的是整个包的数据
+		return send(m_sock, packet.Data(strOut), strOut.size(), 0) > 0;
 	}
 	bool GetFilePath(std::string& strPath) {
 		// if((m_packet.sCmd >= 2)&&(m_packet.sCmd <= 4))
@@ -247,12 +248,18 @@ public:
 		closesocket(m_sock);
 		m_sock = INVALID_SOCKET;
 	}
+	void UpdateAddress(int nIP, int nPort) {
+		m_nIP = nIP;
+		m_nPort = nPort;
+	}
 
 private:
+	int m_nIP;
+	int m_nPort;
 	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
-	CClientSocket() {
+	CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0){
 		m_sock = INVALID_SOCKET; // -1
 		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境"), _T("初始化错误"), MB_OK | MB_ICONERROR);
@@ -261,7 +268,11 @@ private:
 		m_buffer.resize(BUFFER_SIZE);
 		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
-	CClientSocket(const CClientSocket& ss) {}              // 禁止拷贝构造
+	CClientSocket(const CClientSocket& ss) {  // 禁止拷贝构造
+		m_sock = ss.m_sock;
+		m_nIP = ss.m_nIP;
+		m_nPort = ss.m_nPort;
+	}              
 	CClientSocket& operator=(const CClientSocket& ss) {}   // 禁止拷贝赋值
 	~CClientSocket() {
 		closesocket(m_sock);
