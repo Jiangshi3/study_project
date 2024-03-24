@@ -19,7 +19,8 @@ CClientController* CClientController::getInstance()
 			{WM_SHOW_WATCH, &CClientController::OnShowWatcher},
 			{(UINT)-1, NULL}
 		};
-		for (int i = 0; MsgFuncs[i].nMsg=-1; i++) {
+		for (int i = 0; MsgFuncs[i].nMsg = !- 1; i++)
+		{
 			m_mapFunc.insert(std::pair<UINT, MSGFUNC>(MsgFuncs[i].nMsg, MsgFuncs[i].func));
 			// m_mapFunc.insert(std::make_pair(MsgFuncs[i].nMsg, MsgFuncs[i].func));
 		}
@@ -105,12 +106,45 @@ void CClientController::threadDownloadFile()
 }
 
 
+int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength)
+{
+	CClientSocket* pClient = CClientSocket::getInstance();
+	if (pClient->InitSocket() == false) return false;
+	pClient->Send(CPacket(nCmd, pData, nLength));
+	int cmd = DealCommand();
+	TRACE("ack:%d\r\n", cmd);
+	if (bAutoClose) {
+		CloseSocket();  // 要先判断，不能直接断开连接；因为可能要接收多个
+	}
+	return cmd;
+}
+
+int CClientController::DownFile(CString strPath)
+{
+	CFileDialog dlg(false, NULL, strPath, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, NULL, &m_remoteDlg);  // 创建一个文件对话框对象 dlg
+	if (dlg.DoModal() == IDOK)  // 表示用户已经选择了一个文件并点击了对话框的确定按钮
+	{
+		m_strRemote = strPath;  // 设置两个成员变量，开启线程的时候传递this，就可以直接访问这两个成员变量；【通过成员变量完成传值】
+		m_strLocal = dlg.GetPathName();  // 本地路径
+		m_hThreadDownload = (HANDLE)_beginthread(&CClientController::threadDownloadFileEntry, 0, this);  // this 代表当前对象的指针，即 CClientController 对象的指针
+		if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT) {  // 对于刚成功创建出来的线程，进行Wait就会超时
+			return -1;
+		}
+		m_remoteDlg.BeginWaitCursor(); // 把光标设置为等待(沙漏)状态
+		m_statusDlg.m_info.SetWindowText(_T("命令正在执行中！"));  // m_dlgStatus不再属于RemoteClientDlg的成员；而是属于Controller的成员
+		m_statusDlg.ShowWindow(SW_SHOW);
+		m_statusDlg.CenterWindow(&m_remoteDlg);  // 居中
+		m_statusDlg.SetActiveWindow();
+	}
+	return 0;
+}
+
 void CClientController::StartWatchScreen()
 {
 	m_isClosed = true;  // 保证只有一个线程
-	CWatchDialog dlg(&m_remoteDlg);
+	// m_watchDlg.SetParent(&m_remoteDlg);
 	m_hThreadWatch = (HANDLE)_beginthread(&CClientController::threadWatchScreenEntry, 0, this);
-	dlg.DoModal();  // 模态对话框
+	m_watchDlg.DoModal();  // 模态对话框
 	m_isClosed = true;
 	WaitForSingleObject(m_hThreadWatch, 500);  // 等待先前启动的线程结束，或者超时后继续执行; 它等待线程结束最多500毫秒。
 }
@@ -126,12 +160,12 @@ void CClientController::threadWatchScreen()
 {
 	Sleep(50);
 	while (!m_isClosed) {
-		if (m_remoteDlg.isFull() == false) {  // 更新数据到m_image缓存
+		if (m_watchDlg.isFull() == false) {  // 更新数据到m_image缓存
 			int ret = SendCommandPacket(6); // SendCommandPacket()设置了默认值
 			if (ret == 6) {
 				if (GetImage(m_remoteDlg.GetImage()) == 0)   // 在m_remoteDlg中的GetImage()返回的是引用；
 				{
-					m_remoteDlg.SetImageStatus(true);  // 设置m_isFull = true;
+					m_watchDlg.SetImageStatus(true);  // 设置m_isFull = true;
 				}
 				else {
 					TRACE("获取图片失败!\r\n");

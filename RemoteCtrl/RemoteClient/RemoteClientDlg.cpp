@@ -1,6 +1,5 @@
 ﻿
 // RemoteClientDlg.cpp: 实现文件
-//
 
 #include "pch.h"
 #include "framework.h"
@@ -53,8 +52,6 @@ END_MESSAGE_MAP()
 
 // CRemoteClientDlg 对话框
 
-
-
 CRemoteClientDlg::CRemoteClientDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_REMOTECLIENT_DIALOG, pParent)
 	, m_server_address(0)
@@ -84,7 +81,6 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_COMMAND(ID_DOWNLOAD_FILE, &CRemoteClientDlg::OnDownloadFile)
 	ON_COMMAND(ID_DELETE_FILE, &CRemoteClientDlg::OnDeleteFile)
 	ON_COMMAND(ID_RUN_FILE, &CRemoteClientDlg::OnRunFile)
-	ON_MESSAGE(WM_SEND_PACKET, &CRemoteClientDlg::OnSendPACKET)  // 注册消息③  告诉消息的响应函数
 	ON_BN_CLICKED(IDC_BTN_START_WATCH, &CRemoteClientDlg::OnBnClickedBtnStartWatch)
 	ON_WM_TIMER()
 	ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERV, &CRemoteClientDlg::OnIpnFieldchangedIpaddressServ)
@@ -127,7 +123,7 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	// 设置IP地址、端口的初始化
 	UpdateData();
 	// m_server_address = 0x7F000001;  // 127.0.0.1
-	m_server_address = 0xC0A8EDB1;  //  192.168.237.177
+	m_server_address = 0xC0A8E780;  //  192.168.237.177       192.168.231.128
 	m_nPort = _T("9527");
 	CClientController* pController = CClientController::getInstance();    // 一开始IP和Port也给他初始化上
 	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));
@@ -135,8 +131,6 @@ BOOL CRemoteClientDlg::OnInitDialog()
 
 	m_dlgStatus.Create(IDD_DLG_STATUS, this);
 	m_dlgStatus.ShowWindow(SW_HIDE);
-
-	m_isFull = false;  // 初始化缓冲没有数据
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -396,45 +390,45 @@ void CRemoteClientDlg::OnRunFile()
 
 
 // 实现消息响应函数④
-LRESULT CRemoteClientDlg::OnSendPACKET(WPARAM wParam, LPARAM lParam)
-{
-	int ret = 0;
-	int cmd = wParam >> 1;
-	switch (cmd)
-	{
-	case 4:  // 下载文件
-		{
-			CString strFile = (LPCSTR)lParam;
-			// 这里只能接受两个参数，所以要把原先的四个参数，合并到两个参数
-			// int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
-			ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
-		}
-		break;
-	case 5:  // 鼠标
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
-		break;
-	case 6:   // 监控屏幕
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
-		break;
-	case 7:  // 锁机
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
-		break;
-	case 8:  // 解锁
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
-		break;
-/*
-	case 6:
-	case 7:
-	case 8:
-		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
-		break;
-*/
-	default:
-		ret = -1;
-		break;
-	}
-	return ret;
-}
+//LRESULT CRemoteClientDlg::OnSendPACKET(WPARAM wParam, LPARAM lParam)
+//{
+//	int ret = 0;
+//	int cmd = wParam >> 1;
+//	switch (cmd)
+//	{
+//	case 4:  // 下载文件
+//		{
+//			CString strFile = (LPCSTR)lParam;
+//			// 这里只能接受两个参数，所以要把原先的四个参数，合并到两个参数
+//			// int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+//			ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)(LPCSTR)strFile, strFile.GetLength());
+//		}
+//		break;
+//	case 5:  // 鼠标
+//		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1, (BYTE*)lParam, sizeof(MOUSEEV));
+//		break;
+//	case 6:   // 监控屏幕
+//		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
+//		break;
+//	case 7:  // 锁机
+//		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
+//		break;
+//	case 8:  // 解锁
+//		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
+//		break;
+///*
+//	case 6:
+//	case 7:
+//	case 8:
+//		ret = CClientController::getInstance()->SendCommandPacket(cmd, wParam & 1);
+//		break;
+//*/
+//	default:
+//		ret = -1;
+//		break;
+//	}
+//	return ret;
+//}
 
 
 

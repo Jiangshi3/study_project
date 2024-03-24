@@ -7,7 +7,7 @@
 #include "StatusDlg.h"  
 
 
-#define WM_SEND_PACKET (WM_USER + 1)  // 自定义发送数据包的消息ID，依次往WM_USER后面加①
+// #define WM_SEND_PACKET (WM_USER + 1)  // 自定义发送数据包的消息ID，依次往WM_USER后面加①
 
 // CRemoteClientDlg 对话框
 class CRemoteClientDlg : public CDialogEx
@@ -25,18 +25,13 @@ public:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 	
 public:
-	bool isFull() const {
-		return m_isFull;
-	}
 	CImage& GetImage() {
 		return m_image;
 	}
-	void SetImageStatus(bool isFull = false) {
-		m_isFull = isFull;
-	}
+
 private:
 	CImage m_image; // 缓存
-	bool m_isFull;  // 缓存是否有数据； true:有数据； false:没有数据
+
 private:
 	//static void threadEntryWatchData(void* arg);  // 静态成员函数没有this指针，不能访问成员变量、方法  【已删除这个线程】
 	//void threadWatchData();  // 成员函数可以使用this指针                                               【已删除】
@@ -77,7 +72,7 @@ public:
 	afx_msg void OnDeleteFile();
 	afx_msg void OnRunFile();
 
-	afx_msg LRESULT OnSendPACKET(WPARAM wParam, LPARAM lParam);  // 定义自定义消息的响应函数②
+	// afx_msg LRESULT OnSendPACKET(WPARAM wParam, LPARAM lParam);  // 定义自定义消息的响应函数②
 	afx_msg void OnBnClickedBtnStartWatch();
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult);

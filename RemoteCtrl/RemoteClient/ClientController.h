@@ -51,18 +51,7 @@ public:
 	// 9删除文件
 	// 1981测试连接
 	// bAutoClose说明：在处理接受文件目录时，可能会接受多个，不能接受一个就close连接，通过此参数来判断关闭时机
-	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0)
-	{
-		CClientSocket* pClient = CClientSocket::getInstance();
-		if (pClient->InitSocket() == false) return false;
-		pClient->Send(CPacket(nCmd, pData, nLength));
-		int cmd = DealCommand();
-		TRACE("ack:%d\r\n", cmd);
-		if (bAutoClose) {
-			CloseSocket();  // 要先判断，不能直接断开连接；因为可能要接收多个
-		}
-		return cmd;
-	}
+	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0);
 	int GetImage(CImage& image)
 	{
 		CClientSocket* pClient = CClientSocket::getInstance();
@@ -70,24 +59,7 @@ public:
 		return CTool::Bytes2Image(image, pClient->GetPacket().strData);
 	}
 
-	int DownFile(CString strPath) {
-		CFileDialog dlg(false, NULL, strPath, OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT, NULL, &m_remoteDlg);  // 创建一个文件对话框对象 dlg
-		if (dlg.DoModal() == IDOK)  // 表示用户已经选择了一个文件并点击了对话框的确定按钮
-		{
-			m_strRemote = strPath;  // 设置两个成员变量，开启线程的时候传递this，就可以直接访问这两个成员变量；【通过成员变量完成传值】
-			m_strLocal = dlg.GetPathName();  // 本地路径
-			m_hThreadDownload = (HANDLE)_beginthread(&CClientController::threadDownloadFileEntry, 0, this);  // this 代表当前对象的指针，即 CClientController 对象的指针
-			if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT) {  // 对于刚成功创建出来的线程，进行Wait就会超时
-				return -1;
-			}
-			m_remoteDlg.BeginWaitCursor(); // 把光标设置为等待(沙漏)状态
-			m_statusDlg.m_info.SetWindowText(_T("命令正在执行中！"));  // m_dlgStatus不再属于RemoteClientDlg的成员；而是属于Controller的成员
-			m_statusDlg.ShowWindow(SW_SHOW);
-			m_statusDlg.CenterWindow(&m_remoteDlg);  // 居中
-			m_statusDlg.SetActiveWindow();
-		}
-		return 0;
-	}
+	int DownFile(CString strPath);
 
 	void StartWatchScreen();
 
@@ -125,7 +97,7 @@ private:
 	class helper {
 	public:
 		helper() {
-			CClientController::getInstance();
+			// CClientController::getInstance();  // 先不着急构造，如果直接构造后面会有个GetApp()，但此时App还么有创建，会报错；
 		}
 		~helper() {
 			CClientController::releseInstance();

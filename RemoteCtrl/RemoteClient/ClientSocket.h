@@ -36,6 +36,7 @@ public:
 		else {
 			strData.clear();
 		}
+		// TRACE("CPacket: sHead:%08X, nLength:%d, sCmd:%d, sSum:%d\r\n", sHead, nLength, sCmd, sSum);
 	}
 
 	CPacket(const BYTE* pData, size_t& nSize)  // 数据包解包，将包中的数据分配到成员变量中
@@ -169,7 +170,7 @@ public:
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_addr.s_addr = htonl(m_nIP);
 		serv_addr.sin_port = htons(m_nPort);
-		// TRACE("nIP：%08x  nPort:%d\r\n", nIP, nPort);
+		// TRACE("nIP：%08x  nPort:%d\r\n", m_nIP, m_nPort);
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
 			AfxMessageBox("指定的ip地址不存在");
 			return false;
@@ -193,7 +194,7 @@ public:
 		while (true) {
 			size_t len = recv(m_sock, buffer + index, BUFFER_SIZE - index, 0);  // 缓冲区的处理！！！！！！
 			// recv()返回为0的时候还不能结束：此时缓冲区还有数据
-			if ((len <= 0) && (index <= 0))   // 并且缓冲区为空才退出
+			if (((int)len <= 0) && ((int)index <= 0))   // 并且缓冲区为空才退出   TODO:recv()返回类型是int，size_t是unsigned int类型；
 			{
 				return -1;
 			}
@@ -221,7 +222,18 @@ public:
 		TRACE("m_sock=%d\r\n", m_sock);
 		if (m_sock == -1) return false;
 		std::string strOut;  // 经过packet.Data(strOut)得到的是整个包的数据
-		return send(m_sock, packet.Data(strOut), strOut.size(), 0) > 0;
+		packet.Data(strOut);
+		// return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0
+		bool retSend = send(m_sock, strOut.c_str(), strOut.size(), 0);
+		if (retSend) {
+			TRACE("发包成功\r\n");
+		}
+		else {
+			TRACE("发包失败\r\n");
+		}
+		//std::string strOut;
+		// 函数入栈顺序是从右往左,你只有在获取第二个参数的时候才改变了str的值； 因此这里的strOut.size()永远都为0；
+		//return send(m_sock, packet.Data(strOut), strOut.size(), 0) > 0;   // 不可以，这样写法错误
 	}
 	bool GetFilePath(std::string& strPath) {
 		// if((m_packet.sCmd >= 2)&&(m_packet.sCmd <= 4))

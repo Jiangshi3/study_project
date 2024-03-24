@@ -66,7 +66,7 @@ protected:
 		sockaddr_in clnt_addr;
 		int clnt_len = sizeof(clnt_addr);
 		m_clntSock = accept(m_servSock, (struct sockaddr*)&clnt_addr, &clnt_len);
-		TRACE("m_clntSock=%d\r\n", m_clntSock);
+		TRACE("accept m_clntSock=%d\r\n", m_clntSock);
 		if (m_clntSock == -1)return false;
 		return true;
 	}
