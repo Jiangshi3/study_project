@@ -38,3 +38,47 @@ void Dump(BYTE* pData, size_t nSize) {
 	strOut += '\n';
 	OutputDebugStringA(strOut.c_str());
 }
+
+void CClientSocket::threadEntry(void* arg)
+{
+	CClientSocket* thiz = (CClientSocket*)arg;
+	thiz->threadFunc();
+	// _endthread();
+}
+
+void CClientSocket::threadFunc()
+{
+	if (InitSocket() == false) {
+		return;
+	}
+	std::string strBuffer;
+	strBuffer.resize(BUFFER_SIZE);
+	char* pBuffer = (char*)strBuffer.c_str();
+	int index = 0;  // static???
+	while (m_sock != INVALID_SOCKET) {
+		if (m_lstSend.size() > 0) {
+			CPacket& head = m_lstSend.front();
+			if (Send(head) == false) {
+				TRACE("发包失败！\r\n");
+				continue;
+			}
+			auto pr = m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>>(head.hEvent, std::list<CPacket>()));
+			int length = recv(m_sock, pBuffer + index, BUFFER_SIZE - index, 0);
+			if (length > 0 || index > 0) {
+				index += length;
+				size_t size = (size_t)index;
+				CPacket pack((BYTE*)pBuffer, size);
+				if (size > 0) {  // TODO 对于文件夹信息获取，文件信息获取可能产生问题
+					// TODO通知对应的事件
+					pack.hEvent = head.hEvent;
+					pr.first->second.push_back(pack);
+					SetEvent(head.hEvent);
+				}
+			}
+			else if (length <= 0 && index <= 0) {
+				CloseSocket();
+			}
+			m_lstSend.pop_front(); // 对于文件传输可能会有多个CPacket，如果pop出，后续会拿不到HANDLE
+		}		
+	}
+}

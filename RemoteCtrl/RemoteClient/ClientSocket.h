@@ -4,6 +4,8 @@
 #include "framework.h"
 #include <string>
 #include <vector>
+#include <list>
+#include <map>
 
 void Dump(BYTE* pData, size_t nSize);
 
@@ -18,9 +20,10 @@ public:
 		sCmd = pack.sCmd;
 		strData = pack.strData;  // std::string类型可以直接=，调用std::string的赋值运算符重载； 但如果是char*就需要用strcpy()
 		sSum = pack.sSum;
+		hEvent = pack.hEvent;
 	}
 
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize)  // 打包,这里传入的nSize是data的长度
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize, HANDLE hEvent)  // 打包,这里传入的nSize是data的长度
 	{
 		sHead = 0xFEFF;
 		nLength = nSize + 4;
@@ -36,10 +39,11 @@ public:
 		else {
 			strData.clear();
 		}
+		this->hEvent = hEvent;
 		// TRACE("CPacket: sHead:%08X, nLength:%d, sCmd:%d, sSum:%d\r\n", sHead, nLength, sCmd, sSum);
 	}
 
-	CPacket(const BYTE* pData, size_t& nSize)  // 数据包解包，将包中的数据分配到成员变量中
+	CPacket(const BYTE* pData, size_t& nSize):hEvent(INVALID_HANDLE_VALUE)  // 数据包解包，将包中的数据分配到成员变量中
 	{
 		size_t i = 0;
 		for (; i < nSize; i++) {
@@ -91,6 +95,7 @@ public:
 			sCmd = pack.sCmd;
 			strData = pack.strData;
 			sSum = pack.sSum;
+			hEvent = pack.hEvent; 
 		}
 		return *this;
 	}
@@ -115,6 +120,7 @@ public:
 	std::string strData; // 包数据                             
 	WORD        sSum;    // 和校验                                2字节
 	// std::string strOut;  // 整个包的数据
+	HANDLE hEvent;
 };
 #pragma pack(pop)
 
@@ -266,6 +272,8 @@ public:
 	}
 
 private:
+	std::list<CPacket> m_lstSend;
+	std::map<HANDLE, std::list<CPacket>> m_mapAck;
 	int m_nIP;
 	int m_nPort;
 	std::vector<char> m_buffer;
@@ -288,6 +296,7 @@ private:
 	CClientSocket& operator=(const CClientSocket& ss) {}   // 禁止拷贝赋值
 	~CClientSocket() {
 		closesocket(m_sock);
+		m_sock = INVALID_SOCKET;
 		WSACleanup();
 	}
 	BOOL InitSockEnv() {
@@ -297,6 +306,11 @@ private:
 		}
 		return TRUE;
 	}
+
+	static void threadEntry(void* arg);
+	void threadFunc();
+
+
 private:
 	static void releseInstance() {
 		if (m_instance != NULL) {
