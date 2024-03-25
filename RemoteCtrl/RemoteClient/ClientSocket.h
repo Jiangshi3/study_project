@@ -169,14 +169,14 @@ public:
 	bool InitSocket() {
 		if (m_sock != INVALID_SOCKET) CloseSocket();
 		m_sock = socket(PF_INET, SOCK_STREAM, 0);
-		// TRACE("m_sock：%d\r\n", m_sock);
+		TRACE("client m_sock：%d\r\n", m_sock);
 		if (m_sock == -1) return false;
 		sockaddr_in serv_addr;
 		memset(&serv_addr, 0, sizeof(serv_addr));
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_addr.s_addr = htonl(m_nIP);
 		serv_addr.sin_port = htons(m_nPort);
-		// TRACE("nIP：%08x  nPort:%d\r\n", m_nIP, m_nPort);
+		TRACE("serv nIP：%08x  nPort:%d\r\n", m_nIP, m_nPort);
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
 			AfxMessageBox("指定的ip地址不存在");
 			return false;
@@ -219,28 +219,7 @@ public:
 		return -1;
 	}
 
-	bool Send(const char* msg, int nSize) {
-		if (m_sock == -1) return false;
-		return send(m_sock, msg, nSize, 0) > 0;
-	}
-	bool Send(const CPacket& packet) // 修改了，可以用const，packet.Data()不会改变成员值；而是传入了一个参数
-	{
-		TRACE("m_sock=%d\r\n", m_sock);
-		if (m_sock == -1) return false;
-		std::string strOut;  // 经过packet.Data(strOut)得到的是整个包的数据
-		packet.Data(strOut);
-		// return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0
-		bool retSend = send(m_sock, strOut.c_str(), strOut.size(), 0);
-		if (retSend) {
-			TRACE("发包成功\r\n");
-		}
-		else {
-			TRACE("发包失败\r\n");
-		}
-		//std::string strOut;
-		// 函数入栈顺序是从右往左,你只有在获取第二个参数的时候才改变了str的值； 因此这里的strOut.size()永远都为0；
-		//return send(m_sock, packet.Data(strOut), strOut.size(), 0) > 0;   // 不可以，这样写法错误
-	}
+	
 	bool GetFilePath(std::string& strPath) {
 		// if((m_packet.sCmd >= 2)&&(m_packet.sCmd <= 4))
 		if ((m_packet.sCmd == 2) || (m_packet.sCmd == 3) || (m_packet.sCmd == 4)) {
@@ -267,9 +246,32 @@ public:
 		m_sock = INVALID_SOCKET;
 	}
 	void UpdateAddress(int nIP, int nPort) {
-		m_nIP = nIP;
-		m_nPort = nPort;
+		if ((m_nIP != nIP) || (m_nPort != nPort)) {
+			m_nIP = nIP;
+			m_nPort = nPort;
+		}
 	}
+
+	bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks) {
+		if (m_sock == INVALID_SOCKET) {
+			if (InitSocket() == false) return false;
+			_beginthread(&CClientSocket::threadEntry, 0, this);
+		}
+		m_lstSend.push_back(pack);
+		WaitForSingleObject(pack.hEvent, INFINITE); // -1 无限等待
+		std::map<HANDLE, std::list<CPacket>>::iterator it;
+		it = m_mapAck.find(pack.hEvent);
+		if (it != m_mapAck.end()) {
+			std::list<CPacket>::iterator i;
+			for (i = it->second.begin(); i != it->second.end(); i++) {
+				lstPacks.push_back(*i);
+			}
+			m_mapAck.erase(it);
+			return true;
+		}
+		return false;
+	}
+
 
 private:
 	std::list<CPacket> m_lstSend;
@@ -279,8 +281,7 @@ private:
 	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
-	CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0){
-		m_sock = INVALID_SOCKET; // -1
+	CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET){
 		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境"), _T("初始化错误"), MB_OK | MB_ICONERROR);
 			exit(0);
@@ -306,6 +307,24 @@ private:
 		}
 		return TRUE;
 	}
+
+	bool Send(const CPacket& packet) // 修改了，可以用const，packet.Data()不会改变成员值；而是传入了一个参数
+	{
+		TRACE("m_sock=%d\r\n", m_sock);
+		if (m_sock == -1) return false;
+		std::string strOut;  // 经过packet.Data(strOut)得到的是整个包的数据
+		packet.Data(strOut);
+		return send(m_sock, strOut.c_str(), strOut.size(), 0) > 0;
+		//std::string strOut;
+		// 函数入栈顺序是从右往左,你只有在获取第二个参数的时候才改变了str的值； 因此这里的strOut.size()永远都为0；
+		//return send(m_sock, packet.Data(strOut), strOut.size(), 0) > 0;   // 不可以，这样写法错误
+	}
+
+	bool Send(const char* msg, int nSize) {
+		if (m_sock == -1) return false;
+		return send(m_sock, msg, nSize, 0) > 0;
+	}
+
 
 	static void threadEntry(void* arg);
 	void threadFunc();

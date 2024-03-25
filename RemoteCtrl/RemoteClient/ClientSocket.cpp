@@ -43,20 +43,18 @@ void CClientSocket::threadEntry(void* arg)
 {
 	CClientSocket* thiz = (CClientSocket*)arg;
 	thiz->threadFunc();
-	// _endthread();
+	_endthread();
 }
 
 void CClientSocket::threadFunc()
 {
-	if (InitSocket() == false) {
-		return;
-	}
 	std::string strBuffer;
 	strBuffer.resize(BUFFER_SIZE);
 	char* pBuffer = (char*)strBuffer.c_str();
 	int index = 0;  // static???
 	while (m_sock != INVALID_SOCKET) {
 		if (m_lstSend.size() > 0) {
+			TRACE("m_lstSend size:%d\r\n", m_lstSend.size());
 			CPacket& head = m_lstSend.front();
 			if (Send(head) == false) {
 				TRACE("发包失败！\r\n");
@@ -81,4 +79,6 @@ void CClientSocket::threadFunc()
 			m_lstSend.pop_front(); // 对于文件传输可能会有多个CPacket，如果pop出，后续会拿不到HANDLE
 		}		
 	}
+	CloseSocket();
 }
+
