@@ -20,6 +20,7 @@ public:
 public:
 	int m_nObjWidth;  // 对方屏幕的宽
 	int m_nObjHeight; // 对方屏幕的高
+	CImage m_image;
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
@@ -28,6 +29,9 @@ protected:
 	bool m_isFull;  // 缓存是否有数据； true:有数据； false:没有数据
 
 public:
+	CImage& GetImage() {
+		return m_image;
+	}
 	void SetImageStatus(bool isFull = false) {
 		m_isFull = isFull;
 	}

@@ -48,12 +48,12 @@ public:
 	// 1981测试连接
 	// bAutoClose说明：在处理接受文件目录时，可能会接受多个，不能接受一个就close连接，通过此参数来判断关闭时机
 	int SendCommandPacket(int nCmd, bool bAutoClose = true, BYTE* pData = NULL, size_t nLength = 0, std::list<CPacket>* plstPacks=NULL);
-	int GetImage(CImage& image)
-	{
-		CClientSocket* pClient = CClientSocket::getInstance();
-		BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
-		return CTool::Bytes2Image(image, pClient->GetPacket().strData);
-	}
+	//int GetImage(CImage& image)
+	//{
+	//	CClientSocket* pClient = CClientSocket::getInstance();
+	//	BYTE* pData = (BYTE*)pClient->GetPacket().strData.c_str();
+	//	return CTool::Bytes2Image(image, pClient->GetPacket().strData);
+	//}
 
 	int DownFile(CString strPath);
 

@@ -70,7 +70,7 @@ public:
 			strData.resize(nLength - 2 - 2); // 注：nLength包括：控制命令、包数据、和校验的长度
 			memcpy((void*)strData.c_str(), (pData + i), (nLength - 2 - 2));  // 读取数据
 			i += (nLength - 4);
-			TRACE("%s\r\n", strData.c_str() + 12);  // 加上FILEINFO结构体的大小(12)???
+			// TRACE("%s\r\n", strData.c_str() + 12);  // 加上FILEINFO结构体的大小(12)???
 		}
 		sSum = *(WORD*)(pData + i);
 		i += 2;
@@ -169,14 +169,14 @@ public:
 	bool InitSocket() {
 		if (m_sock != INVALID_SOCKET) CloseSocket();
 		m_sock = socket(PF_INET, SOCK_STREAM, 0);
-		TRACE("client m_sock：%d\r\n", m_sock);
+		TRACE("InitSocket client m_sock：%d\r\n", m_sock);
 		if (m_sock == -1) return false;
 		sockaddr_in serv_addr;
 		memset(&serv_addr, 0, sizeof(serv_addr));
 		serv_addr.sin_family = AF_INET;
 		serv_addr.sin_addr.s_addr = htonl(m_nIP);
 		serv_addr.sin_port = htons(m_nPort);
-		TRACE("serv nIP：%08x  nPort:%d\r\n", m_nIP, m_nPort);
+		// TRACE("serv nIP：%08x  nPort:%d\r\n", m_nIP, m_nPort);
 		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
 			AfxMessageBox("指定的ip地址不存在");
 			return false;
@@ -252,36 +252,20 @@ public:
 		}
 	}
 
-	bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks) {
-		if (m_sock == INVALID_SOCKET) {
-			if (InitSocket() == false) return false;
-			_beginthread(&CClientSocket::threadEntry, 0, this);
-		}
-		m_lstSend.push_back(pack);
-		WaitForSingleObject(pack.hEvent, INFINITE); // -1 无限等待
-		std::map<HANDLE, std::list<CPacket>>::iterator it;
-		it = m_mapAck.find(pack.hEvent);
-		if (it != m_mapAck.end()) {
-			std::list<CPacket>::iterator i;
-			for (i = it->second.begin(); i != it->second.end(); i++) {
-				lstPacks.push_back(*i);
-			}
-			m_mapAck.erase(it);
-			return true;
-		}
-		return false;
-	}
+	bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, bool isAutoClose = true);
 
 
 private:
+	bool m_bAutoClose;
 	std::list<CPacket> m_lstSend;
 	std::map<HANDLE, std::list<CPacket>> m_mapAck;
+	std::map<HANDLE, bool> m_mapAutoClose;
 	int m_nIP;
 	int m_nPort;
 	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
-	CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET){
+	CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClose(true){
 		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境"), _T("初始化错误"), MB_OK | MB_ICONERROR);
 			exit(0);
@@ -290,6 +274,7 @@ private:
 		memset(m_buffer.data(), 0, BUFFER_SIZE);
 	}
 	CClientSocket(const CClientSocket& ss) {  // 禁止拷贝构造
+		m_bAutoClose = ss.m_bAutoClose;
 		m_sock = ss.m_sock;
 		m_nIP = ss.m_nIP;
 		m_nPort = ss.m_nPort;
@@ -310,7 +295,7 @@ private:
 
 	bool Send(const CPacket& packet) // 修改了，可以用const，packet.Data()不会改变成员值；而是传入了一个参数
 	{
-		TRACE("m_sock=%d\r\n", m_sock);
+		TRACE("Send sCmd=%d\r\n", packet.sCmd);
 		if (m_sock == -1) return false;
 		std::string strOut;  // 经过packet.Data(strOut)得到的是整个包的数据
 		packet.Data(strOut);

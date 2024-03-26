@@ -254,7 +254,7 @@ void CRemoteClientDlg::LoadFileCurrrent()  // 用于删除文件后更新m_list
 		if (cmd < 0)break;
 		pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
 	}
-	CClientController::getInstance()->CloseSocket();
+	// CClientController::getInstance()->CloseSocket();
 }
 
 void CRemoteClientDlg::LoadFileInfo()
@@ -298,7 +298,7 @@ void CRemoteClientDlg::LoadFileInfo()
 		if (cmd < 0)break;
 		pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
 	}
-	pCtrl->CloseSocket();
+	// pCtrl->CloseSocket();
 	TRACE("Count: %d\r\n", Count);
 }
 

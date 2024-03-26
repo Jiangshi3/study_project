@@ -53,7 +53,7 @@ CPoint CWatchDialog::UserPoint2RemoteScreenPoint(CPoint& point, bool isScreen)
 {	// 800 450    1920 1080    16:9   (本电脑分辨率：2560 1440)
 	CRect clientRect;
 	if (isScreen)ScreenToClient(&point);  // 全局坐标到客户区域坐标;  将屏幕坐标转换为客户区域坐标。
-	TRACE("x:%d, y:%d\r\n", point.x, point.y);
+	// TRACE("x:%d, y:%d\r\n", point.x, point.y);
 	// 本地坐标到远程坐标
 	m_picture.GetWindowRect(clientRect);
 	// TRACE("Width:%d, Height:%d\r\n", clientRect.Width(), clientRect.Height());
@@ -85,28 +85,19 @@ void CWatchDialog::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	if (nIDEvent == 0) {
-		CClientController* pCtrl = CClientController::getInstance();
-		// CRemoteClientDlg* pParent = (CRemoteClientDlg*)GetParent();  // IDD_DLG_WATCH的父类是IDD_REMOTECLIENT_DIALOG(CRemoteClientDlg)
-		if (m_isFull == true)   // 如果有数据就显示
+		if (m_isFull)   // 如果有数据就显示
 		{
 			CRect rect;
 			m_picture.GetWindowRect(rect);
-			CImage image;
-			pCtrl->GetImage(image);
-			if (m_nObjWidth == -1) {
-				m_nObjWidth = image.GetWidth();
-			}
-			if (m_nObjHeight == -1) {
-				m_nObjHeight = image.GetHeight();
-			}
-			// pParent->GetImage().BitBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, SRCCOPY);
-			image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+			m_nObjWidth = m_image.GetWidth();
+			m_nObjHeight = m_image.GetHeight();
+			m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
 			m_picture.InvalidateRect(NULL);
-			image.Destroy();
+			m_image.Destroy();
 			m_isFull = false;
+			TRACE("更新图片完成:%d %d\r\n", m_nObjWidth, m_nObjHeight);
 		}
 	}
-
 	CDialog::OnTimer(nIDEvent);
 }
 
@@ -115,7 +106,7 @@ void CWatchDialog::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	if ((m_nObjWidth != -1) && (m_nObjHeight != -1)) {
 		CPoint remote = UserPoint2RemoteScreenPoint(point);
-		TRACE("x:%d, y:%d\r\n", point.x, point.y);
+		TRACE("LeftButtonDown: x:%d, y:%d\r\n", point.x, point.y);
 		MOUSEEV event;
 		event.ptXY = remote;
 		event.nButton = 0;  // 左键  
@@ -145,6 +136,7 @@ void CWatchDialog::OnRButtonDown(UINT nFlags, CPoint point)
 {
 	if ((m_nObjWidth != -1) && (m_nObjHeight != -1)) {
 		CPoint remote = UserPoint2RemoteScreenPoint(point);
+		TRACE("RightButtonDown: x:%d, y:%d\r\n", point.x, point.y);
 		MOUSEEV event;
 		event.ptXY = remote;
 		event.nButton = 1;  // 右键 

@@ -23,14 +23,6 @@ public:
 
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
-	
-public:
-	CImage& GetImage() {
-		return m_image;
-	}
-
-private:
-	CImage m_image; // 缓存
 
 private:
 	//static void threadEntryWatchData(void* arg);  // 静态成员函数没有this指针，不能访问成员变量、方法  【已删除这个线程】

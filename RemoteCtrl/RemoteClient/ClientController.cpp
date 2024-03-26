@@ -48,7 +48,8 @@ LRESULT CClientController::SendMessage(MSG msg)
 	if (hEvent == NULL)return -2;
 	MSGINFO info(msg);  // 用于包装 MSG 结构体以便在不同线程之间传递。
 	PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM) & info, (LPARAM) & hEvent);
-	WaitForSingleObject(hEvent, -1);
+	WaitForSingleObject(hEvent, INFINITE);
+	CloseHandle(hEvent);
 	/*
 		等待事件对象 hEvent 被置为 signaled 状态。-1 表示无限等待，直到事件对象状态变为 signaled;
 		这意味着程序将在此处阻塞，直到目标线程处理完消息并设置了事件对象状态。
@@ -108,17 +109,27 @@ void CClientController::threadDownloadFile()
 
 int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, std::list<CPacket>* plstPacks)
 {
+	TRACE("nCmd:%d; %s start %lld\r\n", nCmd, __FUNCTION__, GetTickCount64());
 	CClientSocket* pClient = CClientSocket::getInstance();
 	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	if (hEvent == NULL) {
+		TRACE("hEvent=NULL; CreateEvent Failed\r\n");
+	}
 	// 应答结果包
 	std::list<CPacket> lstPacks;
 	if (plstPacks == NULL) {
 		plstPacks = &lstPacks;
 	}
 	pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPacks);
+	if (hEvent != NULL) {
+		TRACE("hEvent!=NULL; CloseHandle(hEvent); \r\n");
+		CloseHandle(hEvent);  // 回收事件句柄，防止资源耗尽
+	}
 	if (plstPacks->size() > 0) {
+		TRACE("%s 【plstPacks->size() > 0】 End %lld\r\n", __FUNCTION__, GetTickCount64());
 		return plstPacks->front().sCmd;
 	}
+	TRACE("%s 【return -1;】End %lld\r\n", __FUNCTION__, GetTickCount64());
 	return -1;
 }
 
@@ -144,8 +155,7 @@ int CClientController::DownFile(CString strPath)
 
 void CClientController::StartWatchScreen()
 {
-	m_isClosed = true;  // 保证只有一个线程
-	// m_watchDlg.SetParent(&m_remoteDlg);
+	m_isClosed = false;  // 保证只有一个线程
 	m_hThreadWatch = (HANDLE)_beginthread(&CClientController::threadWatchScreenEntry, 0, this);
 	m_watchDlg.DoModal();  // 模态对话框
 	m_isClosed = true;
@@ -167,16 +177,14 @@ void CClientController::threadWatchScreen()
 			std::list<CPacket> lstPacks;
 			int ret = SendCommandPacket(6, true, NULL, 0, &lstPacks); // SendCommandPacket()设置了默认值
 			if (ret == 6) {
-				if (CTool::Bytes2Image(m_remoteDlg.GetImage(), lstPacks.front().strData) == 0)   // 在m_remoteDlg中的GetImage()返回的是引用；
+				if (CTool::Bytes2Image(m_watchDlg.GetImage(), lstPacks.front().strData) == 0)   // 在m_remoteDlg中的GetImage()返回的是引用；
 				{
 					m_watchDlg.SetImageStatus(true);  // 设置m_isFull = true;
+					TRACE("成功设置图片\r\n");
 				}
 				else {
 					TRACE("获取图片失败!\r\n");
 				}
-			}
-			else {
-				Sleep(1);
 			}
 		}
 		else {
