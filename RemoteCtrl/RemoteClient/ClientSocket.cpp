@@ -39,6 +39,34 @@ void Dump(BYTE* pData, size_t nSize) {
 	OutputDebugStringA(strOut.c_str());
 }
 
+
+bool CClientSocket::InitSocket()
+{
+	if (m_sock != INVALID_SOCKET) CloseSocket();
+	m_sock = socket(PF_INET, SOCK_STREAM, 0);
+	TRACE("InitSocket client m_sock：%d\r\n", m_sock);
+	if (m_sock == -1) return false;
+	sockaddr_in serv_addr;
+	memset(&serv_addr, 0, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_addr.s_addr = htonl(m_nIP);
+	serv_addr.sin_port = htons(m_nPort);
+	// TRACE("serv nIP：%08x  nPort:%d\r\n", m_nIP, m_nPort);
+	if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
+		AfxMessageBox("指定的ip地址不存在");
+		return false;
+	}
+	int ret = connect(m_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+	if (ret == -1) {
+		AfxMessageBox("连接失败");
+		TRACE("连接失败：%d %s\r\n", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
+		return false;
+	}
+	TRACE("socket init done!\r\n");
+	return true;
+}
+
+
 void CClientSocket::threadEntry(void* arg)
 {
 	CClientSocket* thiz = (CClientSocket*)arg;
@@ -54,23 +82,27 @@ void CClientSocket::threadFunc()
 	int index = 0;  // static???
 	InitSocket();
 	while (m_sock != INVALID_SOCKET) {
-		Sleep(1);
 		if (m_lstSend.size() > 0) {	
 			InitSocket();
 			TRACE("m_lstSend size:%d\r\n", m_lstSend.size());
+			m_lock.lock();
 			CPacket& head = m_lstSend.front();
+			m_lock.unlock();
 			if (Send(head) == false) {
 				TRACE("发包失败！\r\n");				
 				continue;
 			}
 			std::map<HANDLE, std::list<CPacket>&>::iterator it;
+			m_lock.lock();
 			it = m_mapAck.find(head.hEvent);
+			m_lock.unlock();
 			if (it != m_mapAck.end()) {
 				std::map<HANDLE, bool>::iterator it0;
 				it0 = m_mapAutoClose.find(head.hEvent);
 				do {
 					int length = recv(m_sock, pBuffer + index, BUFFER_SIZE - index, 0);
-					if (length > 0 || index > 0) {
+					TRACE("recv:%d  index:%d\r\n", length, index);
+					if ((length > 0) || (index > 0)) {
 						index += length;
 						size_t size = (size_t)index;
 						CPacket pack((BYTE*)pBuffer, size);
@@ -80,42 +112,58 @@ void CClientSocket::threadFunc()
 							it->second.push_back(pack);
 							index -= size;
 							memmove(pBuffer, pBuffer + size, index);
+							TRACE("SetEvent:%d   it0->second:%d\r\n", pack.sCmd, it0->second);
 							if (it0->second == true) {
 								SetEvent(head.hEvent);
+								break;  // 逻辑？？
 							}
 						}
 					}
-					else if (length <= 0 && index <= 0) {
+					else if ((length <= 0) && (index <= 0)) {
 						CloseSocket();
 						SetEvent(head.hEvent); // 等到服务端关闭命令之后，再通知事情完成
+						m_lock.lock();
 						m_mapAutoClose.erase(it0);
+						m_lock.unlock();
+						// TRACE("SetEvent:%d   it0->second:%d\r\n", head.sCmd, it0->second); // 都erase(it0)了，不能再it0->second
 						break;
 					}
 				} while (it0->second == false);
 			}			
+			m_lock.lock();
 			m_lstSend.pop_front(); // 对于文件传输可能会有多个CPacket，如果pop出，后续会拿不到HANDLE
+			m_lock.unlock();
 			if (InitSocket() == false) {
 				InitSocket();
 			}			
-		}		
+		}
+		Sleep(1);
 	}
 	CloseSocket();
 }
 
 
 bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, bool isAutoClose) {
-	if (CClientSocket::m_sock == INVALID_SOCKET) {
-		_beginthread(&CClientSocket::threadEntry, 0, this);
+	if (m_sock == INVALID_SOCKET && m_hThread==INVALID_HANDLE_VALUE) {
+		m_hThread = (HANDLE)_beginthread(&CClientSocket::threadEntry, 0, this);
+		TRACE("start thread\r\n");
 	}
+	m_lock.lock();
 	auto pr = m_mapAck.insert(std::pair<HANDLE, std::list<CPacket>&>(pack.hEvent, lstPacks));
 	m_mapAutoClose.insert(std::pair<HANDLE, bool>(pack.hEvent, isAutoClose));
-	TRACE("cmd:%d  hEvent:%08X  threadid:%d\r\n", pack.sCmd, pack.hEvent, GetCurrentThreadId());
 	m_lstSend.push_back(pack);
+	m_lock.unlock();
+	TRACE("cmd:%d  hEvent:%08X  threadid:%d\r\n", pack.sCmd, pack.hEvent, GetCurrentThreadId());
 	WaitForSingleObject(pack.hEvent, INFINITE); // -1 无限等待
+	TRACE("cmd:%d  hEvent:%08X  threadid:%d\r\n", pack.sCmd, pack.hEvent, GetCurrentThreadId());
 	std::map<HANDLE, std::list<CPacket>&>::iterator it;
+	m_lock.lock();
 	it = m_mapAck.find(pack.hEvent);
+	m_lock.unlock();
 	if (it != m_mapAck.end()) {
+		m_lock.lock();
 		m_mapAck.erase(it);
+		m_lock.unlock();
 		return true;
 	}
 	return false;

@@ -190,6 +190,7 @@ void CClientController::threadWatchScreen()
 			Sleep(1); // 防止Send()失败后，在死循环里面瞬间拉满  ************** 【学习这种思想】
 		}
 	}
+	TRACE("thread end %d\r\n", m_isClosed);
 }
 
 unsigned __stdcall CClientController::threadEntry(void* arg)

@@ -6,6 +6,7 @@
 #include <vector>
 #include <list>
 #include <map>
+#include <mutex>
 
 void Dump(BYTE* pData, size_t nSize);
 
@@ -171,29 +172,8 @@ public:
 		}
 		return m_instance;
 	}
-	bool InitSocket() {
-		if (m_sock != INVALID_SOCKET) CloseSocket();
-		m_sock = socket(PF_INET, SOCK_STREAM, 0);
-		TRACE("InitSocket client m_sock：%d\r\n", m_sock);
-		if (m_sock == -1) return false;
-		sockaddr_in serv_addr;
-		memset(&serv_addr, 0, sizeof(serv_addr));
-		serv_addr.sin_family = AF_INET;
-		serv_addr.sin_addr.s_addr = htonl(m_nIP);
-		serv_addr.sin_port = htons(m_nPort);
-		// TRACE("serv nIP：%08x  nPort:%d\r\n", m_nIP, m_nPort);
-		if (serv_addr.sin_addr.s_addr == INADDR_NONE) {
-			AfxMessageBox("指定的ip地址不存在");
-			return false;
-		}
-		int ret = connect(m_sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
-		if (ret == -1) {
-			AfxMessageBox("连接失败");
-			TRACE("连接失败：%d %s\r\n", WSAGetLastError(), GetErrorInfo(WSAGetLastError()).c_str());
-			return false;
-		}
-		return true;
-	}
+	bool InitSocket();
+
 
 #define BUFFER_SIZE 2048000  // 图片比较大，如果不扩大缓冲区，就一直读不到
 	int DealCommand() {
@@ -261,6 +241,8 @@ public:
 
 
 private:
+	HANDLE m_hThread;
+	std::mutex m_lock;
 	bool m_bAutoClose;
 	std::list<CPacket> m_lstSend;
 	std::map<HANDLE, std::list<CPacket>&> m_mapAck;
@@ -270,7 +252,7 @@ private:
 	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
-	CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClose(true){
+	CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClose(true), m_hThread(INVALID_HANDLE_VALUE){
 		if (InitSockEnv() == FALSE) {
 			MessageBox(NULL, _T("无法初始化套接字环境"), _T("初始化错误"), MB_OK | MB_ICONERROR);
 			exit(0);

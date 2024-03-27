@@ -113,6 +113,7 @@ void CWatchDialog::OnLButtonDown(UINT nFlags, CPoint point)
 		event.nAction = 2;  // 按下
 
 		CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*) & event, sizeof(MOUSEEV));  // 是sizeof(MOUSEEV)还是sizeof(event)？
+		TRACE("LeftButtonDown\r\n");
 	}
 	CDialog::OnLButtonDown(nFlags, point);
 }
@@ -121,6 +122,7 @@ void CWatchDialog::OnLButtonDown(UINT nFlags, CPoint point)
 void CWatchDialog::OnLButtonUp(UINT nFlags, CPoint point)
 {
 	if ((m_nObjWidth != -1) && (m_nObjHeight != -1)) {
+		TRACE("LeftButtonUp\r\n");
 		CPoint remote = UserPoint2RemoteScreenPoint(point);
 		MOUSEEV event;
 		event.ptXY = remote;
@@ -206,6 +208,7 @@ void CWatchDialog::OnMouseMove(UINT nFlags, CPoint point)  // 这种拿到的是
 		event.nAction = 4;  // 鼠标移动
 
 		CClientController::getInstance()->SendCommandPacket(5, true, (BYTE*)&event, sizeof(MOUSEEV));
+		TRACE("发送鼠标移动sCmd=5\r\n");
 	}
 	CDialog::OnMouseMove(nFlags, point);
 }
