@@ -117,19 +117,18 @@ int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData,
 	}
 	// 应答结果包
 	std::list<CPacket> lstPacks;
-	if (plstPacks == NULL) {
+	if (plstPacks == NULL) {  // 如果不关心应答
 		plstPacks = &lstPacks;
 	}
-	pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPacks);
+	pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPacks, bAutoClose);
 	if (hEvent != NULL) {
-		TRACE("hEvent!=NULL; CloseHandle(hEvent); \r\n");
 		CloseHandle(hEvent);  // 回收事件句柄，防止资源耗尽
 	}
 	if (plstPacks->size() > 0) {
-		TRACE("%s 【plstPacks->size() > 0】 End %lld\r\n", __FUNCTION__, GetTickCount64());
+		TRACE("%s  End %lld\r\n", __FUNCTION__, GetTickCount64());
 		return plstPacks->front().sCmd;
 	}
-	TRACE("%s 【return -1;】End %lld\r\n", __FUNCTION__, GetTickCount64());
+	TRACE("%s End %lld\r\n", __FUNCTION__, GetTickCount64());
 	return -1;
 }
 

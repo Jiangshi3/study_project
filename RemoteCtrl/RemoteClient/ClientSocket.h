@@ -10,6 +10,11 @@
 void Dump(BYTE* pData, size_t nSize);
 
 #pragma pack(push, 1)  // 更改对齐方式， 让下面的CPacket类将按照一个字节的边界对齐；
+/*
+	#pragma pack(1) 指定了结构体成员的对齐方式为 1 字节。
+	这意味着结构体的成员将依次排列，不考虑它们的自然对齐。
+	这样可以节省内存空间，但可能会增加访问成员的开销。
+*/
 class CPacket
 {
 public:
@@ -258,7 +263,7 @@ public:
 private:
 	bool m_bAutoClose;
 	std::list<CPacket> m_lstSend;
-	std::map<HANDLE, std::list<CPacket>> m_mapAck;
+	std::map<HANDLE, std::list<CPacket>&> m_mapAck;
 	std::map<HANDLE, bool> m_mapAutoClose;
 	int m_nIP;
 	int m_nPort;

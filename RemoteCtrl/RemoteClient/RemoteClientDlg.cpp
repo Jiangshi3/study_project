@@ -192,21 +192,22 @@ void CRemoteClientDlg::OnBnClickedBtnTest()
 
 void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 {
-	int ret = CClientController::getInstance()->SendCommandPacket(1);
-	if (ret < 0) {
+	std::list<CPacket> lstPackets;
+	int ret = CClientController::getInstance()->SendCommandPacket(1, true, NULL, 0, &lstPackets);
+	if (ret < 0 || (lstPackets.size() <= 0)) {
 		AfxMessageBox("命令处理失败！");
 		return;
 	}
-	m_tree.DeleteAllItems();
-	CClientSocket* pClient = CClientSocket::getInstance();
-	std::string drivers = pClient->GetPacket().strData;  // 是以','分割;   "C,D,E"
+	CPacket& head = lstPackets.front();
+	std::string drivers = head.strData;  // 是以','分割;   "C,D,E"
 	std::string dr;
+	m_tree.DeleteAllItems();
 	for (int i = 0; i < drivers.size(); i++) {
 		if (drivers[i] != ',') {
 			dr = drivers[i];
 			dr += ":";
 			HTREEITEM hTemp = m_tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
-			m_tree.InsertItem("", hTemp, TVI_LAST);  // 在盘符后面添加一个空的子节点
+			m_tree.InsertItem(NULL, hTemp, TVI_LAST);  // 在盘符后面添加一个空的子节点
 			dr.clear();
 		}
 	}
@@ -238,7 +239,6 @@ void CRemoteClientDlg::LoadFileCurrrent()  // 用于删除文件后更新m_list
 {
 	HTREEITEM hTree = m_tree.GetSelectedItem();
 	CString strPath = GetPath(hTree);
-
 	m_list.DeleteAllItems();
 	int nCmd = CClientController::getInstance()->SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
 	CClientSocket* pClient = CClientSocket::getInstance();  // TODO
@@ -248,7 +248,6 @@ void CRemoteClientDlg::LoadFileCurrrent()  // 用于删除文件后更新m_list
 		if (pInfo->IsDirectory==FALSE) {
 			m_list.InsertItem(0, pInfo->szFileName);
 		}
-
 		int cmd = CClientController::getInstance()->DealCommand();
 		TRACE("ack:%d\r\n", cmd);
 		if (cmd < 0)break;
@@ -272,34 +271,28 @@ void CRemoteClientDlg::LoadFileInfo()
 	CString strPath = GetPath(hTreeSelected);
 	CClientController* pCtrl = CClientController::getInstance();
 	CClientSocket*pClient = CClientSocket::getInstance(); // TODO
-	int nCmd = pCtrl->SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
-	PFILEINFO pInfo = (PFILEINFO)CClientSocket::getInstance()->GetPacket().strData.c_str();
-	int Count = 0;
-	while (pInfo->HasNext) {
-		TRACE("[%s] isdir: %d\r\n", pInfo->szFileName, pInfo->IsDirectory);
-		if (pInfo->IsDirectory) {
-			if ((CString)(pInfo->szFileName) == "." || (CString)(pInfo->szFileName) == "..")  // 排除这两个目录
-			{
-				int cmd = pCtrl->DealCommand();
-				TRACE("ack:%d\r\n", cmd);
-				if (cmd < 0)break;
-				pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
-				continue;
+	std::list<CPacket> lstPackets;
+	int nCmd = pCtrl->SendCommandPacket(2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength(), &lstPackets);
+	if (lstPackets.size() > 0) {
+		std::list<CPacket>::iterator it = lstPackets.begin();
+		for (; it != lstPackets.end(); it++) {
+			PFILEINFO pInfo = (PFILEINFO)(*it).strData.c_str();
+			if (pInfo->HasNext == false) {
+				continue;  // break;???
 			}
-			HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-			m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
+			if (pInfo->IsDirectory) {
+				if ((CString)(pInfo->szFileName) == "." || (CString)(pInfo->szFileName) == "..")  // 排除这两个目录
+				{
+					continue;
+				}
+				HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
+				m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
+			}
+			else {
+				m_list.InsertItem(0, pInfo->szFileName);
+			}
 		}
-		else {
-			m_list.InsertItem(0, pInfo->szFileName);
-		}
-		Count++;
-		int cmd = pCtrl->DealCommand();
-		TRACE("ack:%d\r\n", cmd);
-		if (cmd < 0)break;
-		pInfo = (PFILEINFO)pClient->GetPacket().strData.c_str();
 	}
-	// pCtrl->CloseSocket();
-	TRACE("Count: %d\r\n", Count);
 }
 
 void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
