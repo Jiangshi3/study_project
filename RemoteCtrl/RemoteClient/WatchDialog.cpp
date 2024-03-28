@@ -52,7 +52,10 @@ END_MESSAGE_MAP()
 CPoint CWatchDialog::UserPoint2RemoteScreenPoint(CPoint& point, bool isScreen)
 {	// 800 450    1920 1080    16:9   (本电脑分辨率：2560 1440)
 	CRect clientRect;
-	if (isScreen)ScreenToClient(&point);  // 全局坐标到客户区域坐标;  将屏幕坐标转换为客户区域坐标。
+	if (!isScreen){
+		ClientToScreen(&point);  // 转换为相对屏幕左上角的坐标（屏幕内的绝对坐标）
+	}
+	m_picture.ScreenToClient(&point);   // 转换为客户区域坐标（相对picture空间左上角的坐标）
 	// TRACE("x:%d, y:%d\r\n", point.x, point.y);
 	// 本地坐标到远程坐标
 	m_picture.GetWindowRect(clientRect);

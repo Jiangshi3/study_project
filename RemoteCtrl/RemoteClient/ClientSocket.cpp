@@ -122,15 +122,22 @@ void CClientSocket::threadFunc()
 					else if ((length <= 0) && (index <= 0)) {
 						CloseSocket();
 						SetEvent(head.hEvent); // 等到服务端关闭命令之后，再通知事情完成
-						m_lock.lock();
-						m_mapAutoClose.erase(it0);
-						m_lock.unlock();
-						// TRACE("SetEvent:%d   it0->second:%d\r\n", head.sCmd, it0->second); // 都erase(it0)了，不能再it0->second
+						// TRACE("SetEvent:%d   it0->second:%d\r\n", head.sCmd, it0->second); // 在erase(it0)之前，查看it0->second
+						if (it0 != m_mapAutoClose.end()) {
+							TRACE("SetEvent:%d   it0->second:%d\r\n", head.sCmd, it0->second);
+							//m_lock.lock();
+							//m_mapAutoClose.erase(it0);
+							//m_lock.unlock();
+						}
+						else {
+							TRACE("异常情况，没有对应的pair\r\n");
+						}
 						break;
 					}
 				} while (it0->second == false);
 			}			
 			m_lock.lock();
+			m_mapAutoClose.erase(head.hEvent);
 			m_lstSend.pop_front(); // 对于文件传输可能会有多个CPacket，如果pop出，后续会拿不到HANDLE
 			m_lock.unlock();
 			if (InitSocket() == false) {
@@ -141,7 +148,6 @@ void CClientSocket::threadFunc()
 	}
 	CloseSocket();
 }
-
 
 bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, bool isAutoClose) {
 	if (m_sock == INVALID_SOCKET && m_hThread==INVALID_HANDLE_VALUE) {
@@ -167,4 +173,36 @@ bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks
 		return true;
 	}
 	return false;
+}
+
+void CClientSocket::threadFunc2()
+{
+	MSG msg;
+	while (::GetMessage(&msg, NULL, 0, 0)) {
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+		std::map<UINT, MSGFUNC>::iterator it = m_mapFunc.find(msg.message);
+		if (it != m_mapFunc.end()) {
+			(this->*(it->second))(msg.message, msg.wParam, msg.lParam);
+			// (this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
+		}
+	}
+}
+
+
+void CClientSocket::SendPack(UINT nMsg, WPARAM pParam, LPARAM lParam) {
+	// TODO:定义一个消息的数据结构（数据和数据长度，模式[接到一个应答包就关闭还是要接收多个]）；
+	// TODO:回调消息的数据结构(要知道是哪个窗口的句柄HWND；要知道回调什么消息MESSAGE)
+	if (InitSocket() == true) {
+		int ret = send(m_sock, (char*)pParam, (int)lParam, 0);
+		if (ret > 0) {
+		}
+		else{
+			CloseSocket();
+			// TODO 网络终止处理
+		}
+	}
+	else {
+		// TODO 错误处理
+	}
 }
