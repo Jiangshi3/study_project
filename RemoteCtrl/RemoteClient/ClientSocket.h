@@ -9,6 +9,8 @@
 #include <mutex>
 
 #define WM_SEND_PACK (WM_USER+1)  // 发送包数据
+#define WM_SEND_PACK_ACK (WM_USER+2)  // 发送包数据应答
+
 void Dump(BYTE* pData, size_t nSize);
 
 #pragma pack(push, 1)  // 更改对齐方式， 让下面的CPacket类将按照一个字节的边界对齐；
@@ -27,10 +29,9 @@ public:
 		sCmd = pack.sCmd;
 		strData = pack.strData;  // std::string类型可以直接=，调用std::string的赋值运算符重载； 但如果是char*就需要用strcpy()
 		sSum = pack.sSum;
-		hEvent = pack.hEvent;
 	}
 
-	CPacket(WORD nCmd, const BYTE* pData, size_t nSize, HANDLE hEvent)  // 打包,这里传入的nSize是data的长度
+	CPacket(WORD nCmd, const BYTE* pData, size_t nSize)  // 打包,这里传入的nSize是data的长度
 	{
 		sHead = 0xFEFF;
 		nLength = nSize + 4;
@@ -46,11 +47,10 @@ public:
 		else {
 			strData.clear();
 		}
-		this->hEvent = hEvent;
 		// TRACE("CPacket: sHead:%08X, nLength:%d, sCmd:%d, sSum:%d\r\n", sHead, nLength, sCmd, sSum);
 	}
 
-	CPacket(const BYTE* pData, size_t& nSize):hEvent(INVALID_HANDLE_VALUE)  // 数据包解包，将包中的数据分配到成员变量中
+	CPacket(const BYTE* pData, size_t& nSize)  // 数据包解包，将包中的数据分配到成员变量中
 	{
 		size_t i = 0;
 		for (; i < nSize; i++) {
@@ -102,7 +102,6 @@ public:
 			sCmd = pack.sCmd;
 			strData = pack.strData;
 			sSum = pack.sSum;
-			hEvent = pack.hEvent; 
 		}
 		return *this;
 	}
@@ -127,7 +126,6 @@ public:
 	std::string strData; // 包数据                             
 	WORD        sSum;    // 和校验                                2字节
 	// std::string strOut;  // 整个包的数据
-	HANDLE hEvent;
 };
 #pragma pack(pop)
 
@@ -157,6 +155,32 @@ typedef struct MouseEvent {
 	WORD nButton; // 0表示左键，1表示右键，2表示中键，3没有按键
 	POINT ptXY;   // 坐标
 }MOUSEEV, * PMOUSEEV;
+
+enum{
+	CSM_AUTOCLOSE=1,   // Client Socket Mode 自动关闭模式
+};
+
+typedef struct PacketData {
+	std::string strData;  // 数据、也可以拿到数据长度
+	UINT nMode;           // 模式
+	PacketData(const char* pData, size_t nLen, UINT mode) {
+		strData.resize(nLen);
+		memcpy((char*)strData.c_str(), pData, nLen);
+		nMode = mode;
+	}
+	// 需要当做一个类去用，所以要把拷贝构造和拷贝赋值写好
+	PacketData(const PacketData& data) {
+		strData = data.strData;  // 因为使用的std::string类，所以两个string可以直接进行“=”
+		nMode = data.nMode;
+	}
+	PacketData& operator=(const PacketData& data) {
+		if (this != &data) {
+			strData = data.strData;
+			nMode = data.nMode;
+		}
+		return *this;
+	}
+}PACKET_DATA;
 
 
 // 定义写在.cpp文件内（因为我写在这里，其他文件#include "ClientSocket.h"时，我的会报错）确保只被定义一次
@@ -238,12 +262,13 @@ public:
 		}
 	}
 
-	bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, bool isAutoClose = true);
-
+	// bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, bool isAutoClose = true);
+	bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClose = true);
 
 private:
 	typedef void(CClientSocket::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	std::map<UINT, MSGFUNC> m_mapFunc;
+	UINT m_nThreadID;
 	HANDLE m_hThread;
 	std::mutex m_lock;
 	bool m_bAutoClose;
@@ -255,33 +280,9 @@ private:
 	std::vector<char> m_buffer;
 	SOCKET m_sock;
 	CPacket m_packet;
-	CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClose(true), m_hThread(INVALID_HANDLE_VALUE){
-		if (InitSockEnv() == FALSE) {
-			MessageBox(NULL, _T("无法初始化套接字环境"), _T("初始化错误"), MB_OK | MB_ICONERROR);
-			exit(0);
-		}
-		m_buffer.resize(BUFFER_SIZE);
-		memset(m_buffer.data(), 0, BUFFER_SIZE);
-	}
-	CClientSocket(const CClientSocket& ss) {  // 禁止拷贝构造
-		m_hThread = INVALID_HANDLE_VALUE;
-		m_bAutoClose = ss.m_bAutoClose;
-		m_sock = ss.m_sock;
-		m_nIP = ss.m_nIP;
-		m_nPort = ss.m_nPort;
-		struct {
-			UINT message;
-			MSGFUNC func;
-		}funcs[] = {
-			{WM_SEND_PACK, &CClientSocket::SendPack},
-			// {WM_SEND_PACK, },
-			{0, NULL}
-		};
-		for (int i = 0; funcs[i].message != 0; i++) {
-			if (m_mapFunc.insert(std::pair<UINT, MSGFUNC>(funcs[i].message, funcs[i].func)).second == false)
-				TRACE("插入失败，消息值：%d，函数值：%08X, 序号：%d\r\n", funcs[i].message, funcs[i].func, i);
-		}
-	}              
+
+	CClientSocket();
+	CClientSocket(const CClientSocket& ss);
 	CClientSocket& operator=(const CClientSocket& ss) {}   // 禁止拷贝赋值
 	~CClientSocket() {
 		closesocket(m_sock);
@@ -313,11 +314,11 @@ private:
 		return send(m_sock, msg, nSize, 0) > 0;
 	}
 
-	void SendPack(UINT nMsg, WPARAM pParam/*缓冲区的值*/, LPARAM lParam/*缓冲区的长度*/);
+	void SendPack(UINT nMsg, WPARAM wParam/*缓冲区的值*/, LPARAM lParam/*缓冲区的长度*/);
 
 
-	static void threadEntry(void* arg);
-	void threadFunc();
+	static unsigned __stdcall threadEntry(void* arg);
+	// void threadFunc();
 	void threadFunc2();
 
 

@@ -76,7 +76,7 @@ void CClientController::threadDownloadFile()
 	}
 	CClientSocket* pClient = CClientSocket::getInstance();
 	do {
-		int ret = SendCommandPacket(4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
 		if (ret < 0) {
 			AfxMessageBox("执行下载文件失败！");
 			TRACE("执行下载文件失败：ret=%d\r\n", ret);
@@ -107,29 +107,11 @@ void CClientController::threadDownloadFile()
 }
 
 
-int CClientController::SendCommandPacket(int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, std::list<CPacket>* plstPacks)
+bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength)
 {
 	TRACE("nCmd:%d; %s start %lld\r\n", nCmd, __FUNCTION__, GetTickCount64());
 	CClientSocket* pClient = CClientSocket::getInstance();
-	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
-	if (hEvent == NULL) {
-		TRACE("hEvent=NULL; CreateEvent Failed\r\n");
-	}
-	// 应答结果包
-	std::list<CPacket> lstPacks;
-	if (plstPacks == NULL) {  // 如果不关心应答
-		plstPacks = &lstPacks;
-	}
-	pClient->SendPacket(CPacket(nCmd, pData, nLength, hEvent), *plstPacks, bAutoClose);
-	if (hEvent != NULL) {
-		CloseHandle(hEvent);  // 回收事件句柄，防止资源耗尽
-	}
-	if (plstPacks->size() > 0) {
-		TRACE("%s  End %lld\r\n", __FUNCTION__, GetTickCount64());
-		return plstPacks->front().sCmd;
-	}
-	TRACE("%s End %lld\r\n", __FUNCTION__, GetTickCount64());
-	return -1;
+	return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose);
 }
 
 int CClientController::DownFile(CString strPath)
@@ -174,7 +156,9 @@ void CClientController::threadWatchScreen()
 	while (!m_isClosed) {
 		if (m_watchDlg.isFull() == false) {  // 更新数据到m_image缓存
 			std::list<CPacket> lstPacks;
-			int ret = SendCommandPacket(6, true, NULL, 0, &lstPacks); // SendCommandPacket()设置了默认值
+			int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, true, NULL, 0); // SendCommandPacket()设置了默认值
+			// TODO 添加WM_SEND_PACK_ACK消息响应函数
+			// TODO 控制发送频率
 			if (ret == 6) {
 				if (CTool::Bytes2Image(m_watchDlg.GetImage(), lstPacks.front().strData) == 0)   // 在m_remoteDlg中的GetImage()返回的是引用；
 				{
