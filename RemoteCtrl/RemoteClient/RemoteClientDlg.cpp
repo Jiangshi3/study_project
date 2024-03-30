@@ -85,6 +85,7 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_WM_TIMER()
 	ON_NOTIFY(IPN_FIELDCHANGED, IDC_IPADDRESS_SERV, &CRemoteClientDlg::OnIpnFieldchangedIpaddressServ)
 	ON_EN_CHANGE(IDC_EDIT_PORT, &CRemoteClientDlg::OnEnChangeEditPort)
+	ON_MESSAGE(WM_SEND_PACK_ACK, &CRemoteClientDlg::OnSendPackAck)
 END_MESSAGE_MAP()
 
 
@@ -193,23 +194,10 @@ void CRemoteClientDlg::OnBnClickedBtnTest()
 void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 {
 	std::list<CPacket> lstPackets;
-	int ret = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1, true, NULL, 0);
-	if (ret < 0 || (lstPackets.size() <= 0)) {
+	bool ret = CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1, true, NULL, 0);
+	if (ret == 0) {
 		AfxMessageBox("命令处理失败！");
 		return;
-	}
-	CPacket& head = lstPackets.front();
-	std::string drivers = head.strData;  // 是以','分割;   "C,D,E"
-	std::string dr;
-	m_tree.DeleteAllItems();
-	for (int i = 0; i < drivers.size(); i++) {
-		if (drivers[i] != ',') {
-			dr = drivers[i];
-			dr += ":";
-			HTREEITEM hTemp = m_tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
-			m_tree.InsertItem(NULL, hTemp, TVI_LAST);  // 在盘符后面添加一个空的子节点
-			dr.clear();
-		}
 	}
 }
 
@@ -272,33 +260,32 @@ void CRemoteClientDlg::LoadFileInfo()
 	CClientController* pCtrl = CClientController::getInstance();
 	CClientSocket*pClient = CClientSocket::getInstance(); // TODO
 	std::list<CPacket> lstPackets;
-	int nCmd = pCtrl->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength());
-	if (lstPackets.size() > 0) {
-		TRACE("lstPackets.size:%d\r\n", lstPackets.size());
-		std::list<CPacket>::iterator it = lstPackets.begin();
-		for (; it != lstPackets.end(); it++) {
-			PFILEINFO pInfo = (PFILEINFO)(*it).strData.c_str();
-			if (pInfo->HasNext == false) {
-				continue;  // break;???
-			}
-			if (pInfo->IsDirectory) {
-				if ((CString)(pInfo->szFileName) == "." || (CString)(pInfo->szFileName) == "..")  // 排除这两个目录
-				{
-					continue;
-				}
-				HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-				m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
-			}
-			else {
-				m_list.InsertItem(0, pInfo->szFileName);
-			}
-		}
-	}
+	int nCmd = pCtrl->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength(), (WPARAM)hTreeSelected);
+	//if (lstPackets.size() > 0) {
+	//	TRACE("lstPackets.size:%d\r\n", lstPackets.size());
+	//	std::list<CPacket>::iterator it = lstPackets.begin();
+	//	for (; it != lstPackets.end(); it++) {
+	//		PFILEINFO pInfo = (PFILEINFO)(*it).strData.c_str();
+	//		if (pInfo->HasNext == false) {
+	//			continue;  // break;???
+	//		}
+	//		if (pInfo->IsDirectory) {
+	//			if ((CString)(pInfo->szFileName) == "." || (CString)(pInfo->szFileName) == "..")  // 排除这两个目录
+	//			{
+	//				continue;
+	//			}
+	//			HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
+	//			m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
+	//		}
+	//		else {
+	//			m_list.InsertItem(0, pInfo->szFileName);
+	//		}
+	//	}
+	//}
 }
 
 void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 {
-	// TODO: 在此添加控件通知处理程序代码
 	*pResult = 0;
 	LoadFileInfo();
 }
@@ -306,7 +293,6 @@ void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 // 单击显示
 void CRemoteClientDlg::OnNMClickTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
 {
-	// TODO: 在此添加控件通知处理程序代码
 	*pResult = 0;
 	LoadFileInfo();
 }
@@ -333,12 +319,10 @@ void CRemoteClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 }
 
 
-
 void CRemoteClientDlg::OnBnClickedBtnStartWatch()
 {
 	CClientController::getInstance()->StartWatchScreen();
 }
-
 
 
 void CRemoteClientDlg::OnDownloadFile()
@@ -450,4 +434,94 @@ void CRemoteClientDlg::OnEnChangeEditPort()
 	UpdateData();
 	CClientController* pController = CClientController::getInstance();
 	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));
+}
+
+LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
+{
+	if ((lParam == -1) || (lParam == -2)) {
+		// TODO 错误处理
+	}
+	else if (lParam == 1) {
+		// 对方关闭了套接字
+	}
+	else {  // 正常的情况
+		CPacket* pPacket = (CPacket*)wParam;
+		if (pPacket != NULL) {
+			// 在RemoteDialog中对命令1、2、3、4响应
+			CPacket& head = *pPacket;
+			switch (head.sCmd) {
+			case 1:  // 查看磁盘分区
+			{
+				std::string drivers = head.strData;  // 是以','分割;   "C,D,E"
+				std::string dr;
+				m_tree.DeleteAllItems();
+				for (int i = 0; i < drivers.size(); i++) {
+					if (drivers[i] != ',') {
+						dr = drivers[i];
+						dr += ":";
+						HTREEITEM hTemp = m_tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+						m_tree.InsertItem(NULL, hTemp, TVI_LAST);  // 在盘符后面添加一个空的子节点
+						dr.clear();
+					}
+				}
+			}
+				break;
+			case 2:  // 查看指定目录下的文件
+			{
+				PFILEINFO pInfo = (PFILEINFO)head.strData.c_str();
+				if (pInfo->HasNext == false) {
+					break;
+				}
+				if (pInfo->IsDirectory) {
+					if ((CString)(pInfo->szFileName) == "." || (CString)(pInfo->szFileName) == "..")  // 排除这两个目录
+					{
+						break;
+					}
+					HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);
+					m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
+				}
+				else {
+					m_list.InsertItem(0, pInfo->szFileName);
+				}
+			}
+			break;
+			case 3:  // 运行文件
+				TRACE("run file done!\r\n");
+				break;
+			case 4:  // 下载文件
+			{
+				FILE* pFile = (FILE*)lParam;
+				static LONGLONG length = 0, index = 0;
+				if (length == 0) {  // 处理第一个包获取文件大小； 第一个包里面的数据是文件的大小
+					length = *(long long*)head.strData.c_str();  
+					if (length == 0) {
+						fclose(pFile);
+						CClientController::getInstance()->DownloadEnd();
+					}					
+				}
+				else if (length > 0 && (index >= length)) {  // 文件结束
+					fclose(pFile);
+					length = 0;
+					index = 0;
+					CClientController::getInstance()->DownloadEnd();
+				}
+				else {  // 写文件
+					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
+					index += head.strData.size();
+				}				
+			}					
+				break;
+			case 9: // 删除文件
+				TRACE("delete file done! \r\n");
+				break;
+			case 1981:  // 测试连接
+				TRACE("test connection success! \r\n");
+				break;
+			default:
+				TRACE("unknow data recevied! %d\r\n", head.sCmd);
+				break;
+			}
+		}
+	}
+	return 0;
 }

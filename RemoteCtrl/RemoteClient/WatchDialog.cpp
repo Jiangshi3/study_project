@@ -43,6 +43,7 @@ BEGIN_MESSAGE_MAP(CWatchDialog, CDialog)
 	ON_STN_CLICKED(IDC_WATCH, &CWatchDialog::OnStnClickedWatch)
 	ON_BN_CLICKED(IDC_BTN_LOCK, &CWatchDialog::OnBnClickedBtnLock)
 	ON_BN_CLICKED(IDC_BTN_UNLOCK, &CWatchDialog::OnBnClickedBtnUnlock)
+	ON_MESSAGE(WM_SEND_PACK_ACK, &CWatchDialog::OnSendPackAck)
 END_MESSAGE_MAP()
 
 
@@ -76,8 +77,7 @@ BOOL CWatchDialog::OnInitDialog()
 {
 	CDialog::OnInitDialog();
 
-	// TODO:  在此添加额外的初始化
-	SetTimer(0, 50, NULL);  // 50ms触发一次； nIDEvent:0
+	// SetTimer(0, 50, NULL);  // 50ms触发一次； nIDEvent:0
 	m_isFull = false;  // 初始化缓冲没有数据
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
@@ -87,23 +87,62 @@ BOOL CWatchDialog::OnInitDialog()
 void CWatchDialog::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	if (nIDEvent == 0) {
-		if (m_isFull)   // 如果有数据就显示
-		{
-			CRect rect;
-			m_picture.GetWindowRect(rect);
-			m_nObjWidth = m_image.GetWidth();
-			m_nObjHeight = m_image.GetHeight();
-			m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
-			m_picture.InvalidateRect(NULL);
-			m_image.Destroy();
-			m_isFull = false;
-			TRACE("更新图片完成:%d %d\r\n", m_nObjWidth, m_nObjHeight);
-		}
-	}
+	//if (nIDEvent == 0) {
+	//	if (m_isFull)   // 如果有数据就显示
+	//	{
+	//		CRect rect;
+	//		m_picture.GetWindowRect(rect);
+	//		m_nObjWidth = m_image.GetWidth();
+	//		m_nObjHeight = m_image.GetHeight();
+	//		m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+	//		m_picture.InvalidateRect(NULL);
+	//		m_image.Destroy();
+	//		m_isFull = false;
+	//		TRACE("更新图片完成:%d %d\r\n", m_nObjWidth, m_nObjHeight);
+	//	}
+	//}
 	CDialog::OnTimer(nIDEvent);
 }
 
+// 自定义消息响应函数实现
+LRESULT CWatchDialog::OnSendPackAck(WPARAM wParam, LPARAM lParam)
+{// 要先看CClientSocket::SendPack()中的::SendMessage()发送过来的是什么消息
+	if ((lParam == -1) || (lParam == -2)) {
+			// TODO 错误处理
+	}
+	else if (lParam == 1) {
+		// 对方关闭了套接字
+	}
+	else{  // 正常的情况
+		CPacket* pPacket = (CPacket*)wParam;
+		if (pPacket != NULL) {
+			// 在WatchDialog中对命令5、6、7、8才响应；
+			switch(pPacket->sCmd) {
+			case 6:  // 屏幕(只有拿到屏幕的才进行下一步操作，其他都不用管) 
+				if (m_isFull) {  // 如果缓存有数据
+					CTool::Bytes2Image(m_image, pPacket->strData);
+					CRect rect;
+					m_picture.GetWindowRect(rect);
+					m_nObjWidth = m_image.GetWidth();
+					m_nObjHeight = m_image.GetHeight();
+					m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+					m_picture.InvalidateRect(NULL);
+					TRACE("更新图片完成:%d %d\r\n", m_nObjWidth, m_nObjHeight);
+					m_image.Destroy();
+					m_isFull = false;					
+				}
+				break;
+			case 5:  // 鼠标操作
+			case 7:  // 锁
+			case 8:  // 解锁
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	return 0;
+}
 
 void CWatchDialog::OnLButtonDown(UINT nFlags, CPoint point)
 {

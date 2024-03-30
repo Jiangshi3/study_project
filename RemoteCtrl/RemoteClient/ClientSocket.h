@@ -8,8 +8,8 @@
 #include <map>
 #include <mutex>
 
-#define WM_SEND_PACK (WM_USER+1)  // 发送包数据
-#define WM_SEND_PACK_ACK (WM_USER+2)  // 发送包数据应答
+#define WM_SEND_PACK (WM_USER+1)  // 发送包数据   对应执行：CClientSocket::SendPack
+#define WM_SEND_PACK_ACK (WM_USER+2)  // 发送包数据应答  在不同的dlg不同的响应：CRemoteClientDlg::OnSendPackAck； CWatchDialog::OnSendPackAck
 
 void Dump(BYTE* pData, size_t nSize);
 
@@ -163,20 +163,24 @@ enum{
 typedef struct PacketData {
 	std::string strData;  // 数据、也可以拿到数据长度
 	UINT nMode;           // 模式
-	PacketData(const char* pData, size_t nLen, UINT mode) {
+	WPARAM wParam;
+	PacketData(const char* pData, size_t nLen, UINT mode, WPARAM nParam = 0) {
 		strData.resize(nLen);
 		memcpy((char*)strData.c_str(), pData, nLen);
 		nMode = mode;
+		wParam = nParam;
 	}
 	// 需要当做一个类去用，所以要把拷贝构造和拷贝赋值写好
 	PacketData(const PacketData& data) {
 		strData = data.strData;  // 因为使用的std::string类，所以两个string可以直接进行“=”
 		nMode = data.nMode;
+		wParam = data.wParam;
 	}
 	PacketData& operator=(const PacketData& data) {
 		if (this != &data) {
 			strData = data.strData;
 			nMode = data.nMode;
+			wParam = data.wParam;
 		}
 		return *this;
 	}
@@ -263,7 +267,7 @@ public:
 	}
 
 	// bool SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks, bool isAutoClose = true);
-	bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClose = true);
+	bool SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClose = true, WPARAM wParam = 0);  // 这里面开启线程，并PostThreadMessage把参数传递给其他线程
 
 private:
 	typedef void(CClientSocket::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);

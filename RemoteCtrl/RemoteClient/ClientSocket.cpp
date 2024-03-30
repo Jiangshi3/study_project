@@ -187,8 +187,7 @@ void CClientSocket::threadFunc()
 }
 */
 
-
-bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClose) {
+bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClose, WPARAM wParam) {
 	if (m_hThread == INVALID_HANDLE_VALUE) {
 		m_hThread = (HANDLE)_beginthreadex(NULL,0, &CClientSocket::threadEntry, this, 0, &m_nThreadID);
 		TRACE("start thread\r\n");
@@ -196,7 +195,7 @@ bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClose)
 	UINT nMode = isAutoClose ? CSM_AUTOCLOSE : 0;
 	std::string strOut;
 	pack.Data(strOut);
-	return PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(),strOut.size(), nMode), (LPARAM)hWnd);
+	return PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(),strOut.size(), nMode, wParam), (LPARAM)hWnd);
 }
 
 /*
@@ -235,7 +234,7 @@ void CClientSocket::threadFunc2()
 		DispatchMessage(&msg);
 		std::map<UINT, MSGFUNC>::iterator it = m_mapFunc.find(msg.message);
 		if (it != m_mapFunc.end()) {
-			(this->*(it->second))(msg.message, msg.wParam, msg.lParam);
+			(this->*(it->second))(msg.message, msg.wParam, msg.lParam);   // 执行 CClientSocket::SendPack()
 			// (this->*m_mapFunc[msg.message])(msg.message, msg.wParam, msg.lParam);
 		}
 	}
@@ -263,7 +262,7 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam) {
 					size_t nLen = index;
 					CPacket pack((BYTE*)pBuffer, nLen);
 					if (nLen > 0) { // 解到包
-						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), 0);  // 在接收的地方要记得delete
+						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), data.wParam);  // 在接收的地方要记得delete
 						if (data.nMode & CSM_AUTOCLOSE) { // 如果是自动关闭模式						
 							CloseSocket();
 							return;

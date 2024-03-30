@@ -6,6 +6,9 @@
 #include "ClientSocket.h"
 #include "StatusDlg.h"  
 
+#ifndef WM_SEND_PACK_ACK
+#define WM_SEND_PACK_ACK (WM_USER+2)  // 发送包数据应答
+#endif
 
 // #define WM_SEND_PACKET (WM_USER + 1)  // 自定义发送数据包的消息ID，依次往WM_USER后面加①
 
@@ -69,4 +72,5 @@ public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
 	afx_msg void OnIpnFieldchangedIpaddressServ(NMHDR* pNMHDR, LRESULT* pResult);
 	afx_msg void OnEnChangeEditPort();
+	afx_msg LRESULT OnSendPackAck(WPARAM wParam, LPARAM lParam);
 };

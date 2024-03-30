@@ -76,7 +76,7 @@ void CClientController::threadDownloadFile()
 	}
 	CClientSocket* pClient = CClientSocket::getInstance();
 	do {
-		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength());
+		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
 		if (ret < 0) {
 			AfxMessageBox("执行下载文件失败！");
 			TRACE("执行下载文件失败：ret=%d\r\n", ret);
@@ -107,11 +107,18 @@ void CClientController::threadDownloadFile()
 }
 
 
-bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength)
+bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, WPARAM wParam)
 {
 	TRACE("nCmd:%d; %s start %lld\r\n", nCmd, __FUNCTION__, GetTickCount64());
 	CClientSocket* pClient = CClientSocket::getInstance();
-	return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose);
+	return pClient->SendPacket(hWnd, CPacket(nCmd, pData, nLength), bAutoClose, wParam);
+}
+
+void CClientController::DownloadEnd()
+{
+	m_statusDlg.ShowWindow(SW_HIDE);
+	m_remoteDlg.EndWaitCursor();
+	m_remoteDlg.MessageBox(_T("下载完成"), _T("完成"));
 }
 
 int CClientController::DownFile(CString strPath)
@@ -121,10 +128,17 @@ int CClientController::DownFile(CString strPath)
 	{
 		m_strRemote = strPath;  // 设置两个成员变量，开启线程的时候传递this，就可以直接访问这两个成员变量；【通过成员变量完成传值】
 		m_strLocal = dlg.GetPathName();  // 本地路径
-		m_hThreadDownload = (HANDLE)_beginthread(&CClientController::threadDownloadFileEntry, 0, this);  // this 代表当前对象的指针，即 CClientController 对象的指针
-		if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT) {  // 对于刚成功创建出来的线程，进行Wait就会超时
+
+		FILE* pFile = fopen(m_strLocal, "wb+");
+		if (pFile == NULL) {
+			AfxMessageBox(_T("本地没有权限保存该文件，或者文件无法创建！"));
 			return -1;
 		}
+		SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
+		// m_hThreadDownload = (HANDLE)_beginthread(&CClientController::threadDownloadFileEntry, 0, this);  // this 代表当前对象的指针，即 CClientController 对象的指针
+		//if (WaitForSingleObject(m_hThreadDownload, 0) != WAIT_TIMEOUT) {  // 对于刚成功创建出来的线程，进行Wait就会超时
+		//	return -1;
+		//}
 		m_remoteDlg.BeginWaitCursor(); // 把光标设置为等待(沙漏)状态
 		m_statusDlg.m_info.SetWindowText(_T("命令正在执行中！"));  // m_dlgStatus不再属于RemoteClientDlg的成员；而是属于Controller的成员
 		m_statusDlg.ShowWindow(SW_SHOW);
@@ -156,7 +170,7 @@ void CClientController::threadWatchScreen()
 	while (!m_isClosed) {
 		if (m_watchDlg.isFull() == false) {  // 更新数据到m_image缓存
 			std::list<CPacket> lstPacks;
-			int ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, true, NULL, 0); // SendCommandPacket()设置了默认值
+			bool ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, true, NULL, 0); // SendCommandPacket()设置了默认值
 			// TODO 添加WM_SEND_PACK_ACK消息响应函数
 			// TODO 控制发送频率
 			if (ret == 6) {
