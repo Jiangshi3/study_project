@@ -270,6 +270,7 @@ public:
 	bool SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClose = true, WPARAM wParam = 0);  // 这里面开启线程，并PostThreadMessage把参数传递给其他线程
 
 private:
+	HANDLE m_eventInvoke;  // 启动事件
 	typedef void(CClientSocket::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	std::map<UINT, MSGFUNC> m_mapFunc;
 	UINT m_nThreadID;

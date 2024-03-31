@@ -39,11 +39,20 @@ void Dump(BYTE* pData, size_t nSize) {
 	OutputDebugStringA(strOut.c_str());
 }
 
-CClientSocket::CClientSocket() :m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), m_bAutoClose(true), m_hThread(INVALID_HANDLE_VALUE) {
+CClientSocket::CClientSocket() :
+	m_nIP(INADDR_ANY), m_nPort(0), m_sock(INVALID_SOCKET), 
+	m_bAutoClose(true), m_hThread(INVALID_HANDLE_VALUE) {
 	if (InitSockEnv() == FALSE) {
 		MessageBox(NULL, _T("无法初始化套接字环境"), _T("初始化错误"), MB_OK | MB_ICONERROR);
 		exit(0);
 	}
+	m_eventInvoke = CreateEvent(NULL, TRUE, FALSE, NULL);
+	m_hThread = (HANDLE)_beginthreadex(NULL, 0, &CClientSocket::threadEntry, this, 0, &m_nThreadID);
+	if (WaitForSingleObject(m_eventInvoke, 100) == WAIT_TIMEOUT) {
+		TRACE("网络消息处理线程启动失败！\r\n");
+	}
+	CloseHandle(m_eventInvoke);
+	
 	m_buffer.resize(BUFFER_SIZE);
 	memset(m_buffer.data(), 0, BUFFER_SIZE);
 
@@ -188,14 +197,12 @@ void CClientSocket::threadFunc()
 */
 
 bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClose, WPARAM wParam) {
-	if (m_hThread == INVALID_HANDLE_VALUE) {
-		m_hThread = (HANDLE)_beginthreadex(NULL,0, &CClientSocket::threadEntry, this, 0, &m_nThreadID);
-		TRACE("start thread\r\n");
-	}
 	UINT nMode = isAutoClose ? CSM_AUTOCLOSE : 0;
 	std::string strOut;
 	pack.Data(strOut);
-	return PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(),strOut.size(), nMode, wParam), (LPARAM)hWnd);
+	bool ret = PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(),strOut.size(), nMode, wParam), (LPARAM)hWnd);  // 记得delete
+	TRACE("PostThreadMessage ret:%d\r\n", ret);
+	return ret;
 }
 
 /*
@@ -228,10 +235,12 @@ bool CClientSocket::SendPacket(const CPacket& pack, std::list<CPacket>& lstPacks
 
 void CClientSocket::threadFunc2()
 {
+	SetEvent(m_eventInvoke);
 	MSG msg;
 	while (::GetMessage(&msg, NULL, 0, 0)) {
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
+		TRACE("Get Message:%08X \r\n", msg.message);
 		std::map<UINT, MSGFUNC>::iterator it = m_mapFunc.find(msg.message);
 		if (it != m_mapFunc.end()) {
 			(this->*(it->second))(msg.message, msg.wParam, msg.lParam);   // 执行 CClientSocket::SendPack()
@@ -239,14 +248,13 @@ void CClientSocket::threadFunc2()
 		}
 	}
 }
-
+// TODO:定义一个消息的数据结构（数据和数据长度，模式[接到一个应答包就关闭还是要接收多个才关闭]）；
+// TODO:回调消息的数据结构(要知道是哪个窗口的句柄HWND)
 // wParam参数是PACKET_DATA结构体消息； lParam参数是HWND类型的，HWND表示窗口句柄；
 void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam) {
-	// TODO:定义一个消息的数据结构（数据和数据长度，模式[接到一个应答包就关闭还是要接收多个才关闭]）；
-	// TODO:回调消息的数据结构(要知道是哪个窗口的句柄HWND)
 	// 如果调用SendPack()传入的WPARAM wParam是局部变量，隐藏的问题；  就先拷贝过来，然后释放掉原先的；
-	PACKET_DATA data = *(PACKET_DATA*)wParam;  // 用到了自定义结构体里写的拷贝构造函数
-	delete (PACKET_DATA*)wParam;
+	PACKET_DATA data = *(PACKET_DATA*)wParam;  // 用到了自定义结构体里写的拷贝构造函数； 然后data是一个栈中的局部变量，自动销毁；
+	delete (PACKET_DATA*)wParam;  // 使用局部变量拷贝出来后，当场销毁，防止遗忘delete；
 	HWND hWnd = (HWND)lParam;
 	if (InitSocket() == true) {		
 		int ret = send(m_sock, data.strData.c_str(), data.strData.size(), 0);

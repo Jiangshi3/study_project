@@ -124,7 +124,7 @@ BOOL CRemoteClientDlg::OnInitDialog()
 	// 设置IP地址、端口的初始化
 	UpdateData();
 	// m_server_address = 0x7F000001;  // 127.0.0.1
-	m_server_address = 0xC0A8E780;  //  192.168.237.177       192.168.231.128
+	m_server_address = 0xC0A8E780;  //  192.168.231.128
 	m_nPort = _T("9527");
 	CClientController* pController = CClientController::getInstance();    // 一开始IP和Port也给他初始化上
 	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));
@@ -445,10 +445,10 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 		// 对方关闭了套接字
 	}
 	else {  // 正常的情况
-		CPacket* pPacket = (CPacket*)wParam;
-		if (pPacket != NULL) {
+		if (wParam != NULL) {
+			CPacket head = *(CPacket*)wParam;  // CPacket head是局部变量自动销毁；复制；
+			delete (CPacket*)wParam;  // 当场销毁
 			// 在RemoteDialog中对命令1、2、3、4响应
-			CPacket& head = *pPacket;
 			switch (head.sCmd) {
 			case 1:  // 查看磁盘分区
 			{

@@ -116,11 +116,13 @@ LRESULT CWatchDialog::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 	else{  // 正常的情况
 		CPacket* pPacket = (CPacket*)wParam;
 		if (pPacket != NULL) {
+			CPacket head = *pPacket;
+			delete pPacket;
 			// 在WatchDialog中对命令5、6、7、8才响应；
-			switch(pPacket->sCmd) {
+			switch(head.sCmd) {
 			case 6:  // 屏幕(只有拿到屏幕的才进行下一步操作，其他都不用管) 
 				if (m_isFull) {  // 如果缓存有数据
-					CTool::Bytes2Image(m_image, pPacket->strData);
+					CTool::Bytes2Image(m_image, head.strData);
 					CRect rect;
 					m_picture.GetWindowRect(rect);
 					m_nObjWidth = m_image.GetWidth();
