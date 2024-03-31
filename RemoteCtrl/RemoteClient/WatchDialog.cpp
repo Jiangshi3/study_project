@@ -121,20 +121,21 @@ LRESULT CWatchDialog::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 			// 在WatchDialog中对命令5、6、7、8才响应；
 			switch(head.sCmd) {
 			case 6:  // 屏幕(只有拿到屏幕的才进行下一步操作，其他都不用管) 
-				if (m_isFull) {  // 如果缓存有数据
-					CTool::Bytes2Image(m_image, head.strData);
-					CRect rect;
-					m_picture.GetWindowRect(rect);
-					m_nObjWidth = m_image.GetWidth();
-					m_nObjHeight = m_image.GetHeight();
-					m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
-					m_picture.InvalidateRect(NULL);
-					TRACE("更新图片完成:%d %d\r\n", m_nObjWidth, m_nObjHeight);
-					m_image.Destroy();
-					m_isFull = false;					
-				}
+			{
+				CTool::Bytes2Image(m_image, head.strData);
+				CRect rect;
+				m_picture.GetWindowRect(rect);
+				m_nObjWidth = m_image.GetWidth();
+				m_nObjHeight = m_image.GetHeight();
+				m_image.StretchBlt(m_picture.GetDC()->GetSafeHdc(), 0, 0, rect.Width(), rect.Height(), SRCCOPY);
+				m_picture.InvalidateRect(NULL);
+				TRACE("更新图片完成:%d %d\r\n", m_nObjWidth, m_nObjHeight);
+				m_image.Destroy();
+			}
 				break;
 			case 5:  // 鼠标操作
+				TRACE("远程端应答了鼠标操作\r\n");
+				break;
 			case 7:  // 锁
 			case 8:  // 解锁
 				break;
@@ -149,8 +150,9 @@ LRESULT CWatchDialog::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 void CWatchDialog::OnLButtonDown(UINT nFlags, CPoint point)
 {
 	if ((m_nObjWidth != -1) && (m_nObjHeight != -1)) {
+		TRACE("LeftButtonDown before: x:%d, y:%d\r\n", point.x, point.y);
 		CPoint remote = UserPoint2RemoteScreenPoint(point);
-		TRACE("LeftButtonDown: x:%d, y:%d\r\n", point.x, point.y);
+		TRACE("LeftButtonDown after: x:%d, y:%d\r\n", remote.x, remote.y);
 		MOUSEEV event;
 		event.ptXY = remote;
 		event.nButton = 0;  // 左键  

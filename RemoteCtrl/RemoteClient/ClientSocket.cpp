@@ -200,8 +200,11 @@ bool CClientSocket::SendPacket(HWND hWnd, const CPacket& pack, bool isAutoClose,
 	UINT nMode = isAutoClose ? CSM_AUTOCLOSE : 0;
 	std::string strOut;
 	pack.Data(strOut);
-	bool ret = PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)new PACKET_DATA(strOut.c_str(),strOut.size(), nMode, wParam), (LPARAM)hWnd);  // 记得delete
-	TRACE("PostThreadMessage ret:%d\r\n", ret);
+	PACKET_DATA* pData = new PACKET_DATA(strOut.c_str(), strOut.size(), nMode, wParam);
+	bool ret = PostThreadMessage(m_nThreadID, WM_SEND_PACK, (WPARAM)pData, (LPARAM)hWnd);  // 记得delete
+	if (ret == false) {  // 如果没有PostThreadMessage成功，那么new出来的就不会被接收到，只能在这里delete；
+		delete pData;
+	}
 	return ret;
 }
 

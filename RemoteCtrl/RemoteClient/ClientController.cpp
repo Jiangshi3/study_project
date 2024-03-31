@@ -168,21 +168,22 @@ void CClientController::threadWatchScreenEntry(void* arg)
 void CClientController::threadWatchScreen()
 {
 	Sleep(50);
+	ULONGLONG nTick = GetTickCount64();
 	while (!m_isClosed) {
 		if (m_watchDlg.isFull() == false) {  // 更新数据到m_image缓存
-			std::list<CPacket> lstPacks;
+			if (GetTickCount64() - nTick < 200) {
+				Sleep(200 - DWORD(GetTickCount64() - nTick));				
+			}
+			nTick = GetTickCount64();
 			bool ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, true, NULL, 0); // SendCommandPacket()设置了默认值
 			// TODO 添加WM_SEND_PACK_ACK消息响应函数
 			// TODO 控制发送频率
-			if (ret == 6) {
-				if (CTool::Bytes2Image(m_watchDlg.GetImage(), lstPacks.front().strData) == 0)   // 在m_remoteDlg中的GetImage()返回的是引用；
-				{
-					m_watchDlg.SetImageStatus(true);  // 设置m_isFull = true;
-					TRACE("成功设置图片\r\n");
-				}
-				else {
-					TRACE("获取图片失败!\r\n");
-				}
+			if (ret) {
+				// TRACE("成功发送请求图片命令\r\n");
+			}
+			else 
+			{
+				TRACE("发送请求图片命令失败! ret:%d\r\n", ret);
 			}
 		}
 		else {

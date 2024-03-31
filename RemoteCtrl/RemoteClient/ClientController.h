@@ -130,7 +130,7 @@ private:
 	typedef LRESULT(CClientController::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	static std::map<UINT, MSGFUNC> m_mapFunc;  // 这里只是声明为静态；没有去实现，如果需要用到的话会报错；需要到.cpp里面去实现
 	CRemoteClientDlg m_remoteDlg;
-	CWatchDialog m_watchDlg;
+	CWatchDialog m_watchDlg;  // TODO：消息包在对话框关闭之后，可能导致内存泄漏
 	CStatusDlg m_statusDlg;
 	HANDLE m_hThread;
 	HANDLE m_hThreadDownload; // 用于结构开启线程的返回值；可以控制下载线程结束；
