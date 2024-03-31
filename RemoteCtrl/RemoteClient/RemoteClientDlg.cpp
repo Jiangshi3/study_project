@@ -258,30 +258,9 @@ void CRemoteClientDlg::LoadFileInfo()
 	m_list.DeleteAllItems();
 	CString strPath = GetPath(hTreeSelected);
 	CClientController* pCtrl = CClientController::getInstance();
-	CClientSocket*pClient = CClientSocket::getInstance(); // TODO
-	std::list<CPacket> lstPackets;
-	int nCmd = pCtrl->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength(), (WPARAM)hTreeSelected);
-	//if (lstPackets.size() > 0) {
-	//	TRACE("lstPackets.size:%d\r\n", lstPackets.size());
-	//	std::list<CPacket>::iterator it = lstPackets.begin();
-	//	for (; it != lstPackets.end(); it++) {
-	//		PFILEINFO pInfo = (PFILEINFO)(*it).strData.c_str();
-	//		if (pInfo->HasNext == false) {
-	//			continue;  // break;???
-	//		}
-	//		if (pInfo->IsDirectory) {
-	//			if ((CString)(pInfo->szFileName) == "." || (CString)(pInfo->szFileName) == "..")  // 排除这两个目录
-	//			{
-	//				continue;
-	//			}
-	//			HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, hTreeSelected, TVI_LAST);
-	//			m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
-	//		}
-	//		else {
-	//			m_list.InsertItem(0, pInfo->szFileName);
-	//		}
-	//	}
-	//}
+	CClientSocket*pClient = CClientSocket::getInstance();
+	TRACE("hTreeSelected:%08X\r\n", hTreeSelected);
+	pCtrl->SendCommandPacket(GetSafeHwnd(), 2, false, (BYTE*)(LPCTSTR)strPath, strPath.GetLength(), (WPARAM)hTreeSelected);
 }
 
 void CRemoteClientDlg::OnNMDblclkTreeDir(NMHDR* pNMHDR, LRESULT* pResult)
@@ -469,6 +448,7 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 			case 2:  // 查看指定目录下的文件
 			{
 				PFILEINFO pInfo = (PFILEINFO)head.strData.c_str();
+				TRACE("HasNext:%d, IsDirectory:%d, szFileName:%s\r\n",pInfo->HasNext, pInfo->IsDirectory, pInfo->szFileName);
 				if (pInfo->HasNext == false) {
 					break;
 				}
@@ -477,8 +457,10 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 					{
 						break;
 					}
+					TRACE("hTreeSelected:%08X; GetSelectedItem:%08X\r\n", lParam, m_tree.GetSelectedItem());
 					HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);
 					m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
+					m_tree.Expand((HTREEITEM)lParam, TVE_EXPAND);  // InsertItem()插入成功后，需要主动展开才能显示
 				}
 				else {
 					m_list.InsertItem(0, pInfo->szFileName);
@@ -491,7 +473,9 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 			case 4:  // 下载文件
 			{
 				FILE* pFile = (FILE*)lParam;
-				static LONGLONG length = 0, index = 0;
+				static LONGLONG length = 0;
+				static LONGLONG index = 0;
+				TRACE("length:%d, index:%d\r\n",length, index);
 				if (length == 0) {  // 处理第一个包获取文件大小； 第一个包里面的数据是文件的大小
 					length = *(long long*)head.strData.c_str();  
 					if (length == 0) {
@@ -508,6 +492,13 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 				else {  // 写文件
 					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
 					index += head.strData.size();
+					TRACE("index=%d\r\n", index);
+					if (index >= length) {
+						fclose(pFile);
+						length = 0;
+						index = 0;
+						CClientController::getInstance()->DownloadEnd();
+					}
 				}				
 			}					
 				break;

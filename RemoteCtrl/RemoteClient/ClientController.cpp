@@ -145,6 +145,7 @@ int CClientController::DownFile(CString strPath)
 		m_statusDlg.ShowWindow(SW_SHOW);
 		m_statusDlg.CenterWindow(&m_remoteDlg);  // æ”÷–
 		m_statusDlg.SetActiveWindow();
+		m_remoteDlg.LoadFileInfo();
 	}
 	return 0;
 }

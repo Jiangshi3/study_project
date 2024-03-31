@@ -35,9 +35,10 @@ private:
 	//void threadDownFile();                        【已删除】
 	// 用于删除文件后更新m_list
 	void LoadFileCurrrent();
-	void LoadFileInfo();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
+public:
+	void LoadFileInfo();
 
 // 实现
 protected:

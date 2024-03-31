@@ -77,7 +77,7 @@ public:
 			strData.resize(nLength - 2 - 2); // 注：nLength包括：控制命令、包数据、和校验的长度
 			memcpy((void*)strData.c_str(), (pData + i), (nLength - 2 - 2));  // 读取数据
 			i += (nLength - 4);
-			// TRACE("%s\r\n", strData.c_str() + 12);  // 加上FILEINFO结构体的大小(12)???
+			TRACE("%s\r\n", strData.c_str() + 12);  // 加上FILEINFO结构体的大小(12)???
 		}
 		sSum = *(WORD*)(pData + i);
 		i += 2;

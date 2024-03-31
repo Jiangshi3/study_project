@@ -259,6 +259,8 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam) {
 	PACKET_DATA data = *(PACKET_DATA*)wParam;  // 用到了自定义结构体里写的拷贝构造函数； 然后data是一个栈中的局部变量，自动销毁；
 	delete (PACKET_DATA*)wParam;  // 使用局部变量拷贝出来后，当场销毁，防止遗忘delete；
 	HWND hWnd = (HWND)lParam;
+	size_t nTemp = data.strData.size();
+	CPacket current((BYTE*)data.strData.c_str(), nTemp);
 	if (InitSocket() == true) {		
 		int ret = send(m_sock, data.strData.c_str(), data.strData.size(), 0);
 		if (ret > 0) {
@@ -273,18 +275,21 @@ void CClientSocket::SendPack(UINT nMsg, WPARAM wParam, LPARAM lParam) {
 					size_t nLen = index;
 					CPacket pack((BYTE*)pBuffer, nLen);
 					if (nLen > 0) { // 解到包
+						TRACE("ack pack %d to hWnd %08X; index:%d; nLen:%d\r\n", pack.sCmd, hWnd, index, nLen);
+						TRACE("%04X\r\n", *(WORD*)(pBuffer + nLen)); // 查看解到一个包后下四个字节是不是包头
 						::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(pack), data.wParam);  // 在接收的地方要记得delete
 						if (data.nMode & CSM_AUTOCLOSE) { // 如果是自动关闭模式						
 							CloseSocket();
 							return;
-						}						
-					}
-					index -= nLen;
-					memmove((void*)pBuffer, pBuffer + nLen, index);  // 老师写错了memmove((void*)pBuffer, pBuffer + index, nLen); 
+						}
+						index -= nLen;
+						memmove((void*)pBuffer, pBuffer + nLen, index);
+					}					
 				}
 				else { // TODO 对方关闭了套接字，或者网络设备异常
+					TRACE("recv failed length:%d, index:%d, cmd:%d\r\n", length, index, current.sCmd);
 					CloseSocket();
-					::SendMessage(hWnd, WM_SEND_PACK_ACK, NULL, 1);
+					::SendMessage(hWnd, WM_SEND_PACK_ACK, (WPARAM)new CPacket(current.sCmd, NULL, 0), 1);
 				}
 			}			
 		}
