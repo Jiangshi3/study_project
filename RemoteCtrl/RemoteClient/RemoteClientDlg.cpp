@@ -33,8 +33,6 @@ public:
 // 实现
 protected:
 	DECLARE_MESSAGE_MAP()
-public:
-
 };
 
 CAboutDlg::CAboutDlg() : CDialogEx(IDD_ABOUTBOX)
@@ -51,7 +49,6 @@ END_MESSAGE_MAP()
 
 
 // CRemoteClientDlg 对话框
-
 CRemoteClientDlg::CRemoteClientDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_REMOTECLIENT_DIALOG, pParent)
 	, m_server_address(0)
@@ -88,19 +85,14 @@ BEGIN_MESSAGE_MAP(CRemoteClientDlg, CDialogEx)
 	ON_MESSAGE(WM_SEND_PACK_ACK, &CRemoteClientDlg::OnSendPackAck)
 END_MESSAGE_MAP()
 
-
 // CRemoteClientDlg 消息处理程序
-
 BOOL CRemoteClientDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
-
 	// 将“关于...”菜单项添加到系统菜单中。
-
 	// IDM_ABOUTBOX 必须在系统命令范围内。
 	ASSERT((IDM_ABOUTBOX & 0xFFF0) == IDM_ABOUTBOX);
 	ASSERT(IDM_ABOUTBOX < 0xF000);
-
 	CMenu* pSysMenu = GetSystemMenu(FALSE);
 	if (pSysMenu != nullptr)
 	{
@@ -114,25 +106,12 @@ BOOL CRemoteClientDlg::OnInitDialog()
 			pSysMenu->AppendMenu(MF_STRING, IDM_ABOUTBOX, strAboutMenu);
 		}
 	}
-
 	// 设置此对话框的图标。  当应用程序主窗口不是对话框时，框架将自动
 	//  执行此操作
 	SetIcon(m_hIcon, TRUE);			// 设置大图标
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
-
 	// TODO: 在此添加额外的初始化代码
-	// 设置IP地址、端口的初始化
-	UpdateData();
-	// m_server_address = 0x7F000001;  // 127.0.0.1
-	m_server_address = 0xC0A8E780;  //  192.168.231.128
-	m_nPort = _T("9527");
-	CClientController* pController = CClientController::getInstance();    // 一开始IP和Port也给他初始化上
-	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));
-	UpdateData(FALSE);
-
-	m_dlgStatus.Create(IDD_DLG_STATUS, this);
-	m_dlgStatus.ShowWindow(SW_HIDE);
-
+	InitUIData();
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -185,7 +164,6 @@ HCURSOR CRemoteClientDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-
 void CRemoteClientDlg::OnBnClickedBtnTest()
 {
 	CClientController::getInstance()->SendCommandPacket(GetSafeHwnd(), 1981);
@@ -200,7 +178,6 @@ void CRemoteClientDlg::OnBnClickedBtnFileinfo()
 		return;
 	}
 }
-
 
 CString CRemoteClientDlg::GetPath(HTREEITEM hTree)
 {
@@ -221,7 +198,6 @@ void CRemoteClientDlg::DeleteTreeChildrenItem(HTREEITEM hTree)
 		if (hSub != NULL) m_tree.DeleteItem(hSub);
 	} while (hSub != NULL);
 }
-
 
 void CRemoteClientDlg::LoadFileCurrrent()  // 用于删除文件后更新m_list
 {
@@ -244,6 +220,7 @@ void CRemoteClientDlg::LoadFileCurrrent()  // 用于删除文件后更新m_list
 	// CClientController::getInstance()->CloseSocket();
 }
 
+
 void CRemoteClientDlg::LoadFileInfo()
 {
 	CPoint ptMouse;
@@ -251,8 +228,6 @@ void CRemoteClientDlg::LoadFileInfo()
 	m_tree.ScreenToClient(&ptMouse);  // 将获取到的鼠标坐标转换为相对于树形控件客户区的坐标。
 	HTREEITEM hTreeSelected = m_tree.HitTest(ptMouse, 0);
 	if (hTreeSelected == NULL)  // 如果点击为空白
-		return;
-	if (m_tree.GetChildItem(hTreeSelected) == NULL)  // 如果没有子目录（如果是个文件）
 		return;
 	DeleteTreeChildrenItem(hTreeSelected); // 先清空
 	m_list.DeleteAllItems();
@@ -297,12 +272,10 @@ void CRemoteClientDlg::OnNMRClickListFile(NMHDR* pNMHDR, LRESULT* pResult)
 	}
 }
 
-
 void CRemoteClientDlg::OnBnClickedBtnStartWatch()
 {
 	CClientController::getInstance()->StartWatchScreen();
 }
-
 
 void CRemoteClientDlg::OnDownloadFile()
 {
@@ -316,7 +289,6 @@ void CRemoteClientDlg::OnDownloadFile()
 		TRACE("下载失败！\r\n");
 	}
 }
-
 
 void CRemoteClientDlg::OnDeleteFile()
 {
@@ -419,100 +391,129 @@ LRESULT CRemoteClientDlg::OnSendPackAck(WPARAM wParam, LPARAM lParam)
 {
 	if ((lParam == -1) || (lParam == -2)) {
 		// TODO 错误处理
+		TRACE("socket is error: %d\r\n", lParam);
 	}
 	else if (lParam == 1) {
 		// 对方关闭了套接字
+		TRACE("socket is closed!\r\n");
 	}
 	else {  // 正常的情况
 		if (wParam != NULL) {
 			CPacket head = *(CPacket*)wParam;  // CPacket head是局部变量自动销毁；复制；
 			delete (CPacket*)wParam;  // 当场销毁
 			// 在RemoteDialog中对命令1、2、3、4响应
-			switch (head.sCmd) {
-			case 1:  // 查看磁盘分区
-			{
-				std::string drivers = head.strData;  // 是以','分割;   "C,D,E"
-				std::string dr;
-				m_tree.DeleteAllItems();
-				for (int i = 0; i < drivers.size(); i++) {
-					if (drivers[i] != ',') {
-						dr = drivers[i];
-						dr += ":";
-						HTREEITEM hTemp = m_tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
-						m_tree.InsertItem(NULL, hTemp, TVI_LAST);  // 在盘符后面添加一个空的子节点
-						dr.clear();
-					}
-				}
-			}
-				break;
-			case 2:  // 查看指定目录下的文件
-			{
-				PFILEINFO pInfo = (PFILEINFO)head.strData.c_str();
-				TRACE("HasNext:%d, IsDirectory:%d, szFileName:%s\r\n",pInfo->HasNext, pInfo->IsDirectory, pInfo->szFileName);
-				if (pInfo->HasNext == false) {
-					break;
-				}
-				if (pInfo->IsDirectory) {
-					if ((CString)(pInfo->szFileName) == "." || (CString)(pInfo->szFileName) == "..")  // 排除这两个目录
-					{
-						break;
-					}
-					TRACE("hTreeSelected:%08X; GetSelectedItem:%08X\r\n", lParam, m_tree.GetSelectedItem());
-					HTREEITEM hTemp = m_tree.InsertItem(pInfo->szFileName, (HTREEITEM)lParam, TVI_LAST);
-					m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
-					m_tree.Expand((HTREEITEM)lParam, TVE_EXPAND);  // InsertItem()插入成功后，需要主动展开才能显示
-				}
-				else {
-					m_list.InsertItem(0, pInfo->szFileName);
-				}
-			}
-			break;
-			case 3:  // 运行文件
-				TRACE("run file done!\r\n");
-				break;
-			case 4:  // 下载文件
-			{
-				FILE* pFile = (FILE*)lParam;
-				static LONGLONG length = 0;
-				static LONGLONG index = 0;
-				TRACE("length:%d, index:%d\r\n",length, index);
-				if (length == 0) {  // 处理第一个包获取文件大小； 第一个包里面的数据是文件的大小
-					length = *(long long*)head.strData.c_str();  
-					if (length == 0) {
-						fclose(pFile);
-						CClientController::getInstance()->DownloadEnd();
-					}					
-				}
-				else if (length > 0 && (index >= length)) {  // 文件结束
-					fclose(pFile);
-					length = 0;
-					index = 0;
-					CClientController::getInstance()->DownloadEnd();
-				}
-				else {  // 写文件
-					fwrite(head.strData.c_str(), 1, head.strData.size(), pFile);
-					index += head.strData.size();
-					TRACE("index=%d\r\n", index);
-					if (index >= length) {
-						fclose(pFile);
-						length = 0;
-						index = 0;
-						CClientController::getInstance()->DownloadEnd();
-					}
-				}				
-			}					
-				break;
-			case 9: // 删除文件
-				TRACE("delete file done! \r\n");
-				break;
-			case 1981:  // 测试连接
-				TRACE("test connection success! \r\n");
-				break;
-			default:
-				TRACE("unknow data recevied! %d\r\n", head.sCmd);
-				break;
-			}
+			DealCommand(head.sCmd, head.strData, lParam);
 		}
 	}
 	return 0;
 }
+
+void CRemoteClientDlg::DealCommand(WORD nCmd, const std::string& strData, LPARAM lParam)
+{
+	switch (nCmd) {
+	case 1:  // 查看磁盘分区
+		Str2Tree(strData, m_tree);  // "C,D,E"
+		break;
+	case 2:  // 查看指定目录下的文件
+		UpdateFileInfo(*(PFILEINFO)strData.c_str(), (HTREEITEM)lParam);
+		break;
+	case 3:  // 运行文件
+		MessageBox("打开文件完成！", "操作完成", MB_ICONINFORMATION);
+		break;
+	case 4:  // 下载文件
+		UpdateDownloadFile((FILE*)lParam, strData);
+		break;
+	case 9: // 删除文件
+		MessageBox("删除文件完成！", "操作完成", MB_ICONINFORMATION);
+		break;
+	case 1981:  // 测试连接
+		MessageBox("连接测试成功！", "连接成功", MB_ICONINFORMATION);
+		break;
+	default:
+		TRACE("unknow data recevied! %d\r\n", nCmd);
+		break;
+	}
+}
+
+
+void CRemoteClientDlg::Str2Tree(const std::string& drivers, CTreeCtrl& tree)
+{
+	std::string dr;
+	tree.DeleteAllItems();
+	for (int i = 0; i < drivers.size(); i++) {
+		if (drivers[i] != ',') {
+			dr = drivers[i];
+			dr += ":";
+			HTREEITEM hTemp = tree.InsertItem(dr.c_str(), TVI_ROOT, TVI_LAST);
+			tree.InsertItem(NULL, hTemp, TVI_LAST);  // 在盘符后面添加一个空的子节点
+			dr.clear();
+		}
+	}
+}
+
+void CRemoteClientDlg::UpdateFileInfo(const FILEINFO& fInfo, HTREEITEM hParent)
+{
+	TRACE("HasNext:%d, IsDirectory:%d, szFileName:%s\r\n", fInfo.HasNext, fInfo.IsDirectory, fInfo.szFileName);
+	if (fInfo.HasNext == false) {
+		return;
+	}
+	if (fInfo.IsDirectory) {
+		if ((CString)(fInfo.szFileName) == "." || (CString)(fInfo.szFileName) == "..")  // 排除这两个目录
+		{
+			return;
+		}
+		TRACE("hTreeSelected:%08X; GetSelectedItem:%08X\r\n", hParent, m_tree.GetSelectedItem());
+		HTREEITEM hTemp = m_tree.InsertItem(fInfo.szFileName, hParent, TVI_LAST);
+		m_tree.InsertItem("", hTemp, TVI_LAST);  // 如果是目录，在后面添加一个空的子节点
+		m_tree.Expand(hParent, TVE_EXPAND);  // InsertItem()插入成功后，需要主动展开才能显示
+	}
+	else {
+		m_list.InsertItem(0, fInfo.szFileName);
+	}
+}
+
+void CRemoteClientDlg::UpdateDownloadFile(FILE* pFile, const std::string& strData)
+{
+	static LONGLONG length = 0;
+	static LONGLONG index = 0;
+	TRACE("length:%d, index:%d\r\n", length, index);
+	if (length == 0) {  // 处理第一个包获取文件大小； 第一个包里面的数据是文件的大小
+		length = *(long long*)strData.c_str();
+		if (length == 0) {
+			fclose(pFile);
+			CClientController::getInstance()->DownloadEnd();
+		}
+	}
+	else if (length > 0 && (index >= length)) {  // 文件结束
+		fclose(pFile);
+		length = 0;
+		index = 0;
+		CClientController::getInstance()->DownloadEnd();
+	}
+	else {  // 写文件
+		fwrite(strData.c_str(), 1, strData.size(), pFile);
+		index += strData.size();
+		TRACE("index=%d\r\n", index);
+		if (index >= length) {
+			fclose(pFile);
+			length = 0;
+			index = 0;
+			CClientController::getInstance()->DownloadEnd();
+		}
+	}
+}
+
+void CRemoteClientDlg::InitUIData()
+{
+	// 设置IP地址、端口的初始化
+	UpdateData();
+	// m_server_address = 0x7F000001;  // 127.0.0.1
+	m_server_address = 0xC0A8E780;  //  192.168.231.128
+	m_nPort = _T("9527");
+	CClientController* pController = CClientController::getInstance();    // 一开始IP和Port也给他初始化上
+	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));
+	UpdateData(FALSE);
+	m_dlgStatus.Create(IDD_DLG_STATUS, this);
+	m_dlgStatus.ShowWindow(SW_HIDE);
+}
+

@@ -24,7 +24,7 @@ public:
 	// 启动
 	int Invoke(CWnd*& pMainWnd);  // pMainWnd 是一个指向 CWnd* 类型指针的引用
 	// 发送消息
-	LRESULT SendMessage(MSG msg);  // 获取一个消息执行的返回结果
+	// LRESULT SendMessage(MSG msg);  // 获取一个消息执行的返回结果
 	// 更新网络服务器的地址
 	void UpdateAddress(int nIP, int nPort) {
 		CClientSocket::getInstance()->UpdateAddress(nIP, nPort);
@@ -67,15 +67,14 @@ public:
 	void StartWatchScreen();
 
 private:
-	static void threadDownloadFileEntry(void* arg);
-	void threadDownloadFile();
+	//static void threadDownloadFileEntry(void* arg);
+	//void threadDownloadFile();
 	static void threadWatchScreenEntry(void* arg);
 	void threadWatchScreen();
 	CClientController() :m_watchDlg(&m_remoteDlg), m_statusDlg(&m_remoteDlg) // 指定两个子对话框的父窗口
 	{
 		m_isClosed = true;
 		m_hThread = INVALID_HANDLE_VALUE;
-		m_hThreadDownload = INVALID_HANDLE_VALUE;
 		m_hThreadWatch = INVALID_HANDLE_VALUE;
 		m_nThreadID = -1;
 	}
@@ -130,10 +129,10 @@ private:
 	typedef LRESULT(CClientController::* MSGFUNC)(UINT nMsg, WPARAM wParam, LPARAM lParam);
 	static std::map<UINT, MSGFUNC> m_mapFunc;  // 这里只是声明为静态；没有去实现，如果需要用到的话会报错；需要到.cpp里面去实现
 	CRemoteClientDlg m_remoteDlg;
-	CWatchDialog m_watchDlg;  // TODO：消息包在对话框关闭之后，可能导致内存泄漏
+	CWatchDialog m_watchDlg;  // 消息包在对话框关闭之后，可能导致内存泄漏
 	CStatusDlg m_statusDlg;
 	HANDLE m_hThread;
-	HANDLE m_hThreadDownload; // 用于结构开启线程的返回值；可以控制下载线程结束；
+	// HANDLE m_hThreadDownload; // 用于结构开启线程的返回值；可以控制下载线程结束；
 	HANDLE m_hThreadWatch;
 	bool m_isClosed; // 监视线程是否关闭
 	// 下载文件的远程路径

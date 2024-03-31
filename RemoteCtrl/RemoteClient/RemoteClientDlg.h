@@ -27,14 +27,19 @@ public:
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
-private:
+private: // TODO：代码即文档
 	//static void threadEntryWatchData(void* arg);  // 静态成员函数没有this指针，不能访问成员变量、方法  【已删除这个线程】
 	//void threadWatchData();  // 成员函数可以使用this指针                                               【已删除】
 	// 线程函数
 	//static void threadEntryDownFile(void* arg);   【已删除这个线程】
 	//void threadDownFile();                        【已删除】
 	// 用于删除文件后更新m_list
+	void DealCommand(WORD nCmd, const std::string& strData, LPARAM lParam);
 	void LoadFileCurrrent();
+	void Str2Tree(const std::string& drivers, CTreeCtrl& tree);
+	void UpdateFileInfo(const FILEINFO& fInfo, HTREEITEM hParent);
+	void UpdateDownloadFile(FILE* pFile, const std::string& strData);
+	void InitUIData();
 	CString GetPath(HTREEITEM hTree);
 	void DeleteTreeChildrenItem(HTREEITEM hTree);
 public:

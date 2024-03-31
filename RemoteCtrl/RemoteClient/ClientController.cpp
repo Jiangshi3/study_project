@@ -42,69 +42,69 @@ int CClientController::Invoke(CWnd*& pMainWnd)
 	return m_remoteDlg.DoModal();
 }
 
-LRESULT CClientController::SendMessage(MSG msg)
-{
-	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);  // 返回一个唯一的事件对象; 该对象会在稍后用于线程同步
-	if (hEvent == NULL)return -2;
-	MSGINFO info(msg);  // 用于包装 MSG 结构体以便在不同线程之间传递。
-	PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM) & info, (LPARAM) & hEvent);
-	WaitForSingleObject(hEvent, INFINITE);
-	CloseHandle(hEvent);
-	/*
-		等待事件对象 hEvent 被置为 signaled 状态。-1 表示无限等待，直到事件对象状态变为 signaled;
-		这意味着程序将在此处阻塞，直到目标线程处理完消息并设置了事件对象状态。
-	*/
-	return info.result;
-}
+//LRESULT CClientController::SendMessage(MSG msg)
+//{
+//	HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);  // 返回一个唯一的事件对象; 该对象会在稍后用于线程同步
+//	if (hEvent == NULL)return -2;
+//	MSGINFO info(msg);  // 用于包装 MSG 结构体以便在不同线程之间传递。
+//	PostThreadMessage(m_nThreadID, WM_SEND_MESSAGE, (WPARAM) & info, (LPARAM) & hEvent);
+//	WaitForSingleObject(hEvent, INFINITE);
+//	CloseHandle(hEvent);
+//	/*
+//		等待事件对象 hEvent 被置为 signaled 状态。-1 表示无限等待，直到事件对象状态变为 signaled;
+//		这意味着程序将在此处阻塞，直到目标线程处理完消息并设置了事件对象状态。
+//	*/
+//	return info.result;
+//}
 
 
-void CClientController::threadDownloadFileEntry(void* arg)
-{
-	CClientController* thiz = (CClientController*)arg;
-	thiz->threadDownloadFile();
-	_endthread();
-}
+//void CClientController::threadDownloadFileEntry(void* arg)
+//{
+//	CClientController* thiz = (CClientController*)arg;
+//	thiz->threadDownloadFile();
+//	_endthread();
+//}
 
-void CClientController::threadDownloadFile()
-{
-	FILE* pFile = fopen(m_strLocal, "wb+");
-	if (pFile == NULL) {
-		AfxMessageBox(_T("本地没有权限保存该文件，或者文件无法创建！"));
-		m_statusDlg.ShowWindow(SW_HIDE);
-		m_remoteDlg.EndWaitCursor();
-		return;
-	}
-	CClientSocket* pClient = CClientSocket::getInstance();
-	do {
-		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
-		if (ret < 0) {
-			AfxMessageBox("执行下载文件失败！");
-			TRACE("执行下载文件失败：ret=%d\r\n", ret);
-			break;
-		}
-		int nLength = *(long long*)pClient->GetPacket().strData.c_str();
-		if (nLength == 0) {
-			AfxMessageBox("文件长度为0或无法读取文件！");
-			break;
-		}
-		long long nCount = 0;
-		while (nCount < nLength) {
-			ret = DealCommand();
-			if (ret < 0) {
-				AfxMessageBox("传输文件失败！");
-				TRACE("传输文件失败：ret=%d\r\n", ret);
-				break;
-			}
-			fwrite(pClient->GetPacket().strData.c_str(), 1, pClient->GetPacket().strData.size(), pFile);
-			nCount += pClient->GetPacket().strData.size();
-		}	
-	} while (false);
-	fclose(pFile);
-	CloseSocket();
-	m_statusDlg.ShowWindow(SW_HIDE);
-	m_remoteDlg.EndWaitCursor();
-	m_remoteDlg.MessageBox(_T("下载完成"), _T("完成"));
-}
+//void CClientController::threadDownloadFile()
+//{
+//	FILE* pFile = fopen(m_strLocal, "wb+");
+//	if (pFile == NULL) {
+//		AfxMessageBox(_T("本地没有权限保存该文件，或者文件无法创建！"));
+//		m_statusDlg.ShowWindow(SW_HIDE);
+//		m_remoteDlg.EndWaitCursor();
+//		return;
+//	}
+//	CClientSocket* pClient = CClientSocket::getInstance();
+//	do {
+//		int ret = SendCommandPacket(m_remoteDlg, 4, false, (BYTE*)(LPCSTR)m_strRemote, m_strRemote.GetLength(), (WPARAM)pFile);
+//		if (ret < 0) {
+//			AfxMessageBox("执行下载文件失败！");
+//			TRACE("执行下载文件失败：ret=%d\r\n", ret);
+//			break;
+//		}
+//		int nLength = *(long long*)pClient->GetPacket().strData.c_str();
+//		if (nLength == 0) {
+//			AfxMessageBox("文件长度为0或无法读取文件！");
+//			break;
+//		}
+//		long long nCount = 0;
+//		while (nCount < nLength) {
+//			ret = DealCommand();
+//			if (ret < 0) {
+//				AfxMessageBox("传输文件失败！");
+//				TRACE("传输文件失败：ret=%d\r\n", ret);
+//				break;
+//			}
+//			fwrite(pClient->GetPacket().strData.c_str(), 1, pClient->GetPacket().strData.size(), pFile);
+//			nCount += pClient->GetPacket().strData.size();
+//		}	
+//	} while (false);
+//	fclose(pFile);
+//	CloseSocket();
+//	m_statusDlg.ShowWindow(SW_HIDE);
+//	m_remoteDlg.EndWaitCursor();
+//	m_remoteDlg.MessageBox(_T("下载完成"), _T("完成"));
+//}
 
 
 bool CClientController::SendCommandPacket(HWND hWnd, int nCmd, bool bAutoClose, BYTE* pData, size_t nLength, WPARAM wParam)
@@ -173,12 +173,10 @@ void CClientController::threadWatchScreen()
 	while (!m_isClosed) {
 		if (m_watchDlg.isFull() == false) {  // 更新数据到m_image缓存
 			if (GetTickCount64() - nTick < 200) {
-				Sleep(200 - DWORD(GetTickCount64() - nTick));				
+				Sleep(200 - DWORD(GetTickCount64() - nTick));		  // 控制发送频率		
 			}
 			nTick = GetTickCount64();
 			bool ret = SendCommandPacket(m_watchDlg.GetSafeHwnd(), 6, true, NULL, 0); // SendCommandPacket()设置了默认值
-			// TODO 添加WM_SEND_PACK_ACK消息响应函数
-			// TODO 控制发送频率
 			if (ret) {
 				// TRACE("成功发送请求图片命令\r\n");
 			}
