@@ -152,10 +152,10 @@ private:
 	}
 private:
 	static void releseInstance() {
-		if (m_instance != NULL) {
+		if (m_instance != NULL) {  // 防御性编程
 			CServerSocket* tmp = m_instance;
 			m_instance = NULL;
-			delete tmp;
+			delete tmp; // 这里所消耗的时间比较多； 先把m_instance置空；
 		}
 	}
 
