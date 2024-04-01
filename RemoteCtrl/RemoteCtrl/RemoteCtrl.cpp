@@ -22,6 +22,46 @@
 CWinApp theApp;
 using namespace std;
 
+void ChooseAutoInvoke() {
+    CString strSubKey =  _T("SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run");
+    CString strInfo = _T("该程序只允许用于合法的用途！\n");
+    strInfo += _T("继续运行该程序，将使得这台机器处于被监控状态！\n");
+    strInfo += _T("如果你不希望这样，请按“取消”按钮退出程序。\n");
+    strInfo += _T("按下“是”按钮，该程序将被复制到你的机器上，并随系统启动而自动运行！\n");
+    strInfo += _T("按下“否”按钮，程序只运行一次，不会在系统内留下任何东西！\n");
+    int ret = MessageBox(NULL, strInfo, _T("警告"), MB_YESNOCANCEL | MB_ICONWARNING | MB_TOPMOST);
+    if (ret == IDYES) {
+        char sPath[MAX_PATH] = "";
+        char sSys[MAX_PATH] = "";
+        std::string strExe = "\\RemoteCtrl.exe ";  // 记得要加空格
+        GetCurrentDirectoryA(MAX_PATH, sPath);  // 使用的是多字节字符集，而不是Unicode字符集；
+        GetSystemDirectoryA(sSys, sizeof(sSys));
+        std::string strCmd = "cmd /K mklink " + std::string(sSys) + strExe + std::string(sPath) + strExe;  // 要执行的命令; cmd /K：执行后窗口不消失
+        system(strCmd.c_str());  // bug:发现这个命令执行后，没有把文件创建在C:\\windows\\system32\\下面，而是创建在了C:\\windows\\SysWOW64\\下面？？？
+        // 设置register 注册表
+        HKEY hKey = NULL;
+        int ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE, strSubKey, 0, KEY_ALL_ACCESS | KEY_WOW64_64KEY, &hKey);
+        if (ret != ERROR_SUCCESS) {
+            RegCloseKey(hKey);
+            MessageBox(NULL, _T("设置自动开机启动失败！是否权限不足？\r\n程序启动失败\r\n"), _T("错误"), MB_ICONERROR|MB_TOPMOST);
+            exit(0);
+        }
+        CString strPath = CString(_T("%SystemRoot%\\SysWOW64\\RemoteCtrl.exe"));  // 把本应该是system32修改为SysWOW64
+        ret = RegSetValueEx(hKey, _T("RemoteCtrl"), 0, REG_EXPAND_SZ, (BYTE*)(LPCTSTR)strPath, strPath.GetLength()*sizeof(TCHAR));  // LPCTSTR： const char*
+        if (ret != ERROR_SUCCESS) {
+			RegCloseKey(hKey);
+			MessageBox(NULL, _T("设置自动开机启动失败！是否权限不足？\r\n程序启动失败\r\n"), _T("错误"), MB_ICONERROR | MB_TOPMOST);
+			exit(0);
+        }
+        RegCloseKey(hKey);
+    }
+    else if (ret == IDCANCEL) {
+        exit(0);
+    }
+    return;
+}
+
+
 int main()
 {
     int nRetCode = 0;
@@ -38,6 +78,7 @@ int main()
         else
         {
             CCommand cmd;
+            ChooseAutoInvoke();
             int count = 0;
             int ret = CServerSocket::getInstance()->Run(&CCommand::RunCommand, &cmd);  // cmd是一个命令类对象
             switch (ret) {
