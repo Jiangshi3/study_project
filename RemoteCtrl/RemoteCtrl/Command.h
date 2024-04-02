@@ -370,8 +370,8 @@ protected:
         TCHAR sPath[MAX_PATH] = _T("");
         mbstowcs(sPath, strPath.c_str(), strPath.size());
         */
-        DeleteFile((LPCSTR)strPath.c_str());
-        TRACE("%s(%d)%s: [%s]\r\n", __FILE__, __LINE__, __FUNCTION__, (LPCSTR)strPath.c_str());
+        DeleteFile((LPCTSTR)strPath.c_str());
+        TRACE("%s(%d)%s: [%s]\r\n", __FILE__, __LINE__, __FUNCTION__, (LPCTSTR)strPath.c_str());
         lstPacket.push_back(CPacket(9, NULL, 0));
         return 0;
     }
