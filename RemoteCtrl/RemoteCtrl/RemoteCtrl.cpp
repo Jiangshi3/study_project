@@ -78,8 +78,8 @@ void ChooseAutoInvoke() {
     strInfo += _T("按下“否”按钮，程序只运行一次，不会在系统内留下任何东西！\n");
     int ret = MessageBox(NULL, strInfo, _T("警告"), MB_YESNOCANCEL | MB_ICONWARNING | MB_TOPMOST);
     if (ret == IDYES) {
-        // WriteRegisterTable(strPath);
-        WriteStartupDir(strPath);
+        WriteRegisterTable(strPath);
+        // WriteStartupDir(strPath);
     }
     else if (ret == IDCANCEL) {
         exit(0);
@@ -87,9 +87,48 @@ void ChooseAutoInvoke() {
     return;
 }
 
+// 获取最近一次系统错误消息，并将其输出到调试器
+void ShowError() {  
+    LPSTR lpMessageBuf = NULL;
+    // strerror(errno);  // 标准c语言库的
+    // FormatMessage()格式化系统错误消息
+    FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER,
+        NULL, GetLastError(),
+        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+        (LPSTR)&lpMessageBuf, 0, NULL); 
+    OutputDebugString(lpMessageBuf);  // 将格式化后的错误消息输出到调试器，通常用于调试目的。
+    LocalFree(lpMessageBuf);
+}
+
+// 检查当前进程是否以管理员权限运行
+bool IsAdmin() {
+    HANDLE hToken = NULL;  // 用于存储当前进程的访问令牌(Token)
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &hToken)) {  // 获取当前进程的访问令牌;
+        ShowError();
+        return false;
+    }
+    TOKEN_ELEVATION eve;
+    DWORD len = 0;
+    if (GetTokenInformation(hToken, TokenElevation, &eve, sizeof(eve), &len) == FALSE) {
+        ShowError();
+        return false;
+    }
+    CloseHandle(hToken);
+    if (len == sizeof(eve)) {
+        return eve.TokenIsElevated;  // 返回令牌的提升状态
+    }
+    printf("length of tokeninformation is %d\r\n", len);
+    return false;
+}
 
 int main()
 {
+    if (IsAdmin()) {
+        OutputDebugString((LPCSTR)"current is run as administrator!\r\n");  //  我写L会报错：OutputDebugString(L"current is run as administrator!\r\n");
+    }
+    else {
+        OutputDebugString((LPCSTR)"current is run as normal user!\r\n");
+    }
     int nRetCode = 0;
     HMODULE hModule = ::GetModuleHandle(nullptr);
     if (hModule != nullptr)
