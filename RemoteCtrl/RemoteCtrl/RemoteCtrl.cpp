@@ -6,6 +6,7 @@
 #include "RemoteCtrl.h"
 #include "ServerSocket.h"
 #include "Command.h"
+#include <conio.h>
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -51,9 +52,102 @@ BOOL ChooseAutoInvoke(const CString& strPath) {
     return true;
 }
 
+void func(void* arg) {
+	std::string* pStr = (std::string*)arg;
+	if (pStr != NULL) {
+		printf("pop from list:%s\r\n", pStr->c_str());
+		delete pStr;
+	}
+	else {
+		printf("list is empty,no data!\r\n");
+	}
+}
+
+enum {
+	IocpListEmpty,
+	IocpListPush,
+	IocpListPop
+};
+
+typedef struct IocpParam {
+	IocpParam() {
+		nOperator = -1;
+	}
+	IocpParam(int op, const char* pData, _beginthread_proc_type cb = NULL) {
+		nOperator = op;
+		strData = pData;
+		cbFunc = cb;
+	}
+	int nOperator; // 操作
+	std::string strData; // 数据
+	_beginthread_proc_type cbFunc; // 回调函数
+}IOCP_PARAM;
+
+
+void threadQuereEntry(HANDLE hIOCP) 
+{
+	std::list<std::string> lstString;
+	DWORD dwTransferred = 0;
+	ULONG_PTR CompletionKey = 0;
+	OVERLAPPED* pOverlapped = NULL;
+	while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &CompletionKey, &pOverlapped, INFINITE)) {
+		if ((dwTransferred == 0) || (CompletionKey == NULL)) {
+			printf("thread is prepare to exit!\r\n");
+			break;
+		}
+		IOCP_PARAM* pParam = (IOCP_PARAM*)CompletionKey;
+		if (pParam->nOperator == IocpListPush) {
+			lstString.push_back(pParam->strData);
+		}
+		else if (pParam->nOperator == IocpListPop) {
+			std::string* pStr = NULL;
+			if (lstString.size() > 0) {
+				pStr = new std::string(lstString.front());
+				lstString.pop_front();
+			}
+			if (pParam->cbFunc) {  // 回调函数处理
+				pParam->cbFunc(pStr);
+			}
+		}
+		else if (pParam->nOperator == IocpListEmpty) {
+			lstString.clear();
+		}
+		delete pParam;
+	}
+	_endthread();
+}
 
 int main()
 {
+	if (!CTool::Init()) return 1;
+
+	printf("press any key to exit...\r\n");
+	HANDLE hIOCP = INVALID_HANDLE_VALUE;  // IOCP: I/O Completion Port
+	hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);  // 最后一个参数：NumberOfConcurrentThreads
+	HANDLE hThread = (HANDLE)_beginthread(threadQuereEntry, 0, hIOCP);
+	
+	ULONGLONG tick = GetTickCount64();
+	while (_kbhit() != 0) {  // 完成端口；把请求与实现 分离了
+		if (GetTickCount64() - tick > 1300) {
+			PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPop, "hello world"), NULL);
+		}
+		if (GetTickCount64() - tick > 2000) {
+			PostQueuedCompletionStatus(hIOCP, sizeof(IOCP_PARAM), (ULONG_PTR)new IOCP_PARAM(IocpListPush, "hello world"), NULL);
+			tick = GetTickCount64();
+		}
+		Sleep(1);
+	}
+
+	if (hIOCP != NULL) {
+		PostQueuedCompletionStatus(hIOCP, 0, NULL, NULL);
+		WaitForSingleObject(hThread, INFINITE);
+	}
+	CloseHandle(hIOCP);
+	printf("exit done!\r\n");
+	exit(0);
+	
+
+	/*
 	if (CTool::IsAdmin()) {
         if (!CTool::Init()) return 1;
 		if (ChooseAutoInvoke(INVOKE_PATH)) {
@@ -75,5 +169,6 @@ int main()
 			return 1;
         }
 	}
+	*/
     return 0;
 }
