@@ -129,36 +129,66 @@ void threadQuereEntry(HANDLE hIOCP)
 	_endthread();   // 代码到此为止，会导致本地对象无法调用析构，从而使得内存发生泄漏
 }
 
+void test() { // 性能测试
+	/*
+		CQueue的push比pop性能高；  std::list的pop_front() 比push_back()的性能高；
+	*/
+	// printf("press any key to exit...\r\n");
+	CQueue<std::string> lstStrings;
+	ULONGLONG tick0 = GetTickCount64();
+	ULONGLONG total = GetTickCount64();
+
+	while (GetTickCount64() - total < 1000) {
+		// if (GetTickCount64() - tick0 > 10) {
+			lstStrings.PushBack("hello world");
+			tick0 = GetTickCount64();
+		// }
+		// Sleep(1);
+	}
+	printf("PushBack done! size:%d\r\n", lstStrings.Size());
+
+	total = GetTickCount64();
+	ULONGLONG tick = GetTickCount64();
+	while (GetTickCount64() - total < 1000) {
+		// if (GetTickCount64() - tick > 10) {
+			std::string str;
+			lstStrings.PopFront(str);
+			tick = GetTickCount64();
+			// printf("pop form queue:%s\r\n", str.c_str());
+		// }
+		// Sleep(1);
+	}
+	printf("exit done! size:%d\r\n", lstStrings.Size());
+	lstStrings.Clear();
+	// printf("Clear done! size:%d\r\n", lstStrings.Size());
+
+	std::list<std::string> lstData;
+	total = GetTickCount64();
+	while (GetTickCount64() - total < 1000) {
+		std::string str;
+		lstData.push_back("hello world");
+	}
+	printf("lstData push_back done! size:%d\r\n", lstData.size());
+
+	total = GetTickCount64();
+	while (GetTickCount64() - total < 1000) {
+		std::string str;
+		if(lstData.size()>0)
+			lstData.pop_front();
+	}
+	printf("lstData pop_front done! size:%d\r\n", lstData.size());
+}
 
 int main()
 {
 	if (!CTool::Init()) return 1;
-	printf("press any key to exit...\r\n");
-	CQueue<std::string> lstStrings;
 
-	ULONGLONG tick0 = GetTickCount64();
-	ULONGLONG tick = GetTickCount64();
-
-	
-	while (_kbhit() == 0) {  // 完成端口；把请求与实现 分离了
-		if (GetTickCount64() - tick0 > 1300) {
-			lstStrings.PushBack("hello world");
-			tick0 = GetTickCount64();
-		}
-		if (GetTickCount64() - tick > 2000) {
-			std::string str;
-			lstStrings.PopFront(str);
-			tick = GetTickCount64();
-			printf("pop form queue:%s\r\n", str.c_str());
-		}
-		Sleep(1);
+	for (int i = 0; i < 10; i++) {
+		test();
 	}
-	printf("exit done! size:%d\r\n", lstStrings.Size());
-	lstStrings.Clear();
-	printf("Clear done! size:%d\r\n", lstStrings.Size());
-
-	exit(0);
 	
+
+	// exit(0);  // 不能随意加这个，根_endthread();类似，不会调用之后的析构；不会执行到~CQueue(); 这里的析构
 
 	/*
 	if (CTool::IsAdmin()) {

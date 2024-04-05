@@ -33,17 +33,19 @@ public:
 		m_hCompletionPort= CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, NULL, 1);
 		m_hThread = INVALID_HANDLE_VALUE;
 		if (m_hCompletionPort != NULL) {
-			m_hThread = (HANDLE)_beginthread(&CQueue<T>::threadEntry, 0, m_hCompletionPort);
+			m_hThread = (HANDLE)_beginthread(&CQueue<T>::threadEntry, 0, this);
 		}
 	}
 	~CQueue() {
 		if (m_lock) return;
 		m_lock = true;
-		HANDLE hTemp = m_hCompletionPort;  // 防御性编程
 		PostQueuedCompletionStatus(m_hCompletionPort, 0, NULL, NULL);
 		WaitForSingleObject(m_hThread, INFINITE);
-		m_hCompletionPort = NULL;
-		CloseHandle(hTemp);
+		if(m_hCompletionPort!=NULL){
+			HANDLE hTemp = m_hCompletionPort;  // 防御性编程
+			m_hCompletionPort = NULL;
+			CloseHandle(hTemp); 
+		}
 	}
 	bool PushBack(const T& data) {	
 		PPARAM* pParam = new PPARAM(QPush, data); // new，post出去就不用管了
@@ -54,6 +56,8 @@ public:
 		bool ret = PostQueuedCompletionStatus(m_hCompletionPort, sizeof(PPARAM), (ULONG_PTR)pParam, NULL);
 		if (ret == false) 
 			delete pParam;
+		// printf("push back done! ret:%d, pParam:%08X\r\n", ret, pParam);
+		// printf("push back done! ret:%d, pParam:%08p\r\n", ret, (void*)pParam);
 		return ret;
 	}
 	bool PopFront(T& data) {
@@ -104,15 +108,17 @@ public:
 		return ret;
 	}
 private:
-	void DealParam(PPARAM pParam) {
+	void DealParam(PPARAM* pParam) {
 		switch (pParam->nOperator) {
 		case QPush:
 			m_lstData.push_back(pParam->Data);
 			delete pParam; // QPush和QClear才需要delete
+			// printf("delete pParam:%08X\r\n", pParam);
 			break;
 		case QPop:
 			if (m_lstData.size() > 0) {
 				pParam->Data = m_lstData.front();
+				// printf("before pop_front: m_lstData.front:%s\r\n", m_lstData.front().c_str());
 				m_lstData.pop_front();
 				if (pParam->hEvent != NULL)
 					SetEvent(pParam->hEvent);  // QPop和QSize需要设置事件
@@ -162,7 +168,9 @@ private:
 			pParam = (PPARAM*)CompletionKey;
 			DealParam(pParam);
 		}
-		CloseHandle(m_hCompletionPort);
+		HANDLE hTemp = m_hCompletionPort;
+		m_hCompletionPort = NULL;
+		CloseHandle(hTemp);
 	}
 private:
 	std::list<T> m_lstData;
