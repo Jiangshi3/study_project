@@ -8,6 +8,8 @@
 #include "Command.h"
 #include <conio.h>
 #include "CQueue.h"
+#include <MSWSock.h>
+#include "CServer.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -53,142 +55,13 @@ BOOL ChooseAutoInvoke(const CString& strPath) {
     return true;
 }
 
-void func(void* arg) {
-	std::string* pStr = (std::string*)arg;
-	if (pStr != NULL) {
-		printf("pop from list:%s\r\n", pStr->c_str());
-		// delete pStr;
-	}
-	else {
-		printf("list is empty,no data!\r\n");
-	}
-}
 
-enum {
-	IocpListEmpty,
-	IocpListPush,
-	IocpListPop
-};
-
-typedef struct IocpParam {
-	IocpParam() {
-		nOperator = -1;
-	}
-	IocpParam(int op, const char* pData, _beginthread_proc_type cb = NULL) {
-		nOperator = op;
-		strData = pData;
-		cbFunc = cb;
-	}
-	int nOperator; // 操作
-	std::string strData; // 数据
-	_beginthread_proc_type cbFunc; // 回调函数
-}IOCP_PARAM;
-
-
-void threadmain(HANDLE hIOCP)
-{
-	std::list<std::string> lstString;
-	DWORD dwTransferred = 0;
-	ULONG_PTR CompletionKey = 0;
-	OVERLAPPED* pOverlapped = NULL;
-	int count = 0, count0 = 0, total = 0;
-	while (GetQueuedCompletionStatus(hIOCP, &dwTransferred, &CompletionKey, &pOverlapped, INFINITE)) {
-		if ((dwTransferred == 0) || (CompletionKey == NULL)) {
-			printf("thread is prepare to exit!\r\n");
-			break;
-		}
-		IOCP_PARAM* pParam = (IOCP_PARAM*)CompletionKey;  // 这里就类似于以前的WPARAM
-		if (pParam->nOperator == IocpListPush) {
-			lstString.push_back(pParam->strData);
-			count++;
-		}
-		else if (pParam->nOperator == IocpListPop) {
-			std::string str;
-			if (lstString.size() > 0) {
-				str = lstString.front();
-				lstString.pop_front();
-			}
-			if (pParam->cbFunc) {  // 回调函数处理
-				pParam->cbFunc(&str);
-			}
-			count0++;
-		}
-		else if (pParam->nOperator == IocpListEmpty) {
-			lstString.clear();
-		}
-		delete pParam;
-		printf("delete pParam total:%d\r\n", ++total);
-	}
-	// lstString.clear();
-	printf("thread exit; count:%d; count0:%d\r\n", count, count0);
-}
-
-void threadQuereEntry(HANDLE hIOCP)
-{
-	threadmain(hIOCP);
-	_endthread();   // 代码到此为止，会导致本地对象无法调用析构，从而使得内存发生泄漏
-}
-
-void test() { // 性能测试
-	/*
-		CQueue的push比pop性能高；  std::list的pop_front() 比push_back()的性能高；
-	*/
-	// printf("press any key to exit...\r\n");
-	CQueue<std::string> lstStrings;
-	ULONGLONG tick0 = GetTickCount64();
-	ULONGLONG total = GetTickCount64();
-
-	while (GetTickCount64() - total < 1000) {
-		// if (GetTickCount64() - tick0 > 10) {
-			lstStrings.PushBack("hello world");
-			tick0 = GetTickCount64();
-		// }
-		// Sleep(1);
-	}
-	printf("PushBack done! size:%d\r\n", lstStrings.Size());
-
-	total = GetTickCount64();
-	ULONGLONG tick = GetTickCount64();
-	while (GetTickCount64() - total < 1000) {
-		// if (GetTickCount64() - tick > 10) {
-			std::string str;
-			lstStrings.PopFront(str);
-			tick = GetTickCount64();
-			// printf("pop form queue:%s\r\n", str.c_str());
-		// }
-		// Sleep(1);
-	}
-	printf("exit done! size:%d\r\n", lstStrings.Size());
-	lstStrings.Clear();
-	// printf("Clear done! size:%d\r\n", lstStrings.Size());
-
-	std::list<std::string> lstData;
-	total = GetTickCount64();
-	while (GetTickCount64() - total < 1000) {
-		std::string str;
-		lstData.push_back("hello world");
-	}
-	printf("lstData push_back done! size:%d\r\n", lstData.size());
-
-	total = GetTickCount64();
-	while (GetTickCount64() - total < 1000) {
-		std::string str;
-		if(lstData.size()>0)
-			lstData.pop_front();
-	}
-	printf("lstData pop_front done! size:%d\r\n", lstData.size());
-}
+void iocp();
 
 int main()
 {
 	if (!CTool::Init()) return 1;
-
-	for (int i = 0; i < 10; i++) {
-		test();
-	}
-	
-
-	// exit(0);  // 不能随意加这个，根_endthread();类似，不会调用之后的析构；不会执行到~CQueue(); 这里的析构
+	// iocp();
 
 	/*
 	if (CTool::IsAdmin()) {
@@ -214,4 +87,77 @@ int main()
 	}
 	*/
     return 0;
+}
+
+class COverlapped {
+public:
+	OVERLAPPED m_overlapped;
+	DWORD m_operator;
+	char m_buffer[4096];
+	COverlapped() {
+		memset(&m_overlapped, 0, sizeof(m_overlapped));
+		m_operator = 0;
+		memset(m_buffer, 0, sizeof(m_buffer));
+	}
+};
+
+void iocp() {
+	CServer server;
+	server.StartService();
+	getchar();
+
+
+	/*
+	// SOCKET sock = socket(AF_INET, SOCK_STREAM, 0); // TCP
+	SOCKET sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);  // 非阻塞的socket
+	if (sock == INVALID_SOCKET) {
+		CTool::ShowError();
+		return;
+	}
+	SOCKET client = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED); // 为后面的AcceptEx();创建的客户端套接字
+	HANDLE hIOCP = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, sock, 4);  // 创建一个新的IO完成端口对象
+	CreateIoCompletionPort((HANDLE)sock, hIOCP, 0, 0);  // 绑定；将指定的套接字与之前创建的IO完成端口关联起来
+
+	sockaddr_in addr;
+	addr.sin_family = AF_INET;
+	addr.sin_addr.s_addr = inet_addr("0.0.0.0"); // INADDR_ANY
+	addr.sin_port = htons(9527);
+	bind(sock, (sockaddr*)&addr, sizeof(addr));
+	listen(sock, 5);
+
+	COverlapped overlapped;
+	overlapped.m_operator = 1;
+	memset(&overlapped, 0, sizeof(COverlapped));
+	DWORD received = 0;
+	//  accept();  // 返回的是一个SOCKET;      AcceptEx(); 返回值是bool,因为套接字已经提前创建好了
+	if (AcceptEx(sock, client, overlapped.m_buffer, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16, &received, &overlapped.m_overlapped) == FALSE) {  // 非阻塞/异步
+		CTool::ShowError();
+		return;
+	}
+
+	overlapped.m_overlapped = 2;
+	WSASend(); // 里面有OVERLAPPED，可以异步
+	overlapped.m_overlapped = 3;
+	WSARecv();
+
+	// 开启线程
+	while (true) { // 代表一个线程
+		LPOVERLAPPED pOverlapped = NULL;
+		DWORD transferred = 0;
+		DWORD key = 0;
+		if (GetQueuedCompletionStatus(hIOCP, &transferred, &key, &pOverlapped, INFINITY)) {		
+			// 宏CONTAINING_RECORD：可以根据一个结构体中某个成员的地址，计算出整个结构体的地址。 
+			// 前面AcceptEx()只需要投递overlapped.m_overlapped进去，就可以实现COverlapped* pO与前面COverlapped overlapped;的对应
+			COverlapped* pO = CONTAINING_RECORD(pOverlapped, COverlapped, m_overlapped);  // 通过成员变量m_overlapped拿到结构体/类COverlapped指针
+			switch (pO->m_operator)
+			{
+			case 1:
+				// 处理accept的操作
+				break;
+			default:
+				break;
+			}
+		}
+	}	
+	*/
 }

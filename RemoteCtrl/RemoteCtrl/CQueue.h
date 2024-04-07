@@ -1,6 +1,7 @@
 #pragma once
 #include "pch.h"
 #include <atomic>
+#include <list>
 
 // 对于一个模板类，应该写在头文件中
 template<class T>
