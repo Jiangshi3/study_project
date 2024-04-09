@@ -61,7 +61,7 @@ void iocp();
 int main()
 {
 	if (!CTool::Init()) return 1;
-	// iocp();
+	iocp();
 
 	/*
 	if (CTool::IsAdmin()) {
@@ -105,8 +105,6 @@ void iocp() {
 	CServer server;
 	server.StartService();
 	getchar();
-
-
 	/*
 	// SOCKET sock = socket(AF_INET, SOCK_STREAM, 0); // TCP
 	SOCKET sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);  // 非阻塞的socket

@@ -2,6 +2,7 @@
 #include "pch.h"
 #include <atomic>
 #include <list>
+#include "CThread.h"
 
 // 对于一个模板类，应该写在头文件中
 template<class T>
@@ -37,7 +38,7 @@ public:
 			m_hThread = (HANDLE)_beginthread(&CQueue<T>::threadEntry, 0, this);
 		}
 	}
-	~CQueue() {
+	virtual ~CQueue() {
 		if (m_lock) return;
 		m_lock = true;
 		PostQueuedCompletionStatus(m_hCompletionPort, 0, NULL, NULL);
@@ -61,7 +62,7 @@ public:
 		// printf("push back done! ret:%d, pParam:%08p\r\n", ret, (void*)pParam);
 		return ret;
 	}
-	bool PopFront(T& data) {
+	virtual bool PopFront(T& data) {
 		HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 		PPARAM Param(QPop, data, hEvent);  // 局部变量
 		if (m_lock) {
@@ -108,8 +109,8 @@ public:
 			delete pParam;
 		return ret;
 	}
-private:
-	void DealParam(PPARAM* pParam) {
+protected:
+	virtual void DealParam(PPARAM* pParam) {
 		switch (pParam->nOperator) {
 		case QPush:
 			m_lstData.push_back(pParam->Data);
@@ -173,10 +174,96 @@ private:
 		m_hCompletionPort = NULL;
 		CloseHandle(hTemp);
 	}
-private:
+protected:
 	std::list<T> m_lstData;
 	HANDLE m_hCompletionPort;
 	HANDLE m_hThread;
 	std::atomic<bool> m_lock;  // 队列正在析构
 };
 
+
+template<class T>
+class CSendQueue :public CQueue<T>, public CThreadFuncBase {
+public:
+	typedef int (CThreadFuncBase::* MYCALLBACK)(T& data);
+	// 回调函数：实现收到数据后要做的事情
+	CSendQueue(CThreadFuncBase* obj, MYCALLBACK callback) :CQueue<T>(), m_base(obj), m_callback(callback) 
+	{
+		m_thread.Start();
+		m_thread.UpdateWorker(::CThreadWorker(this, (FUNCTYPE) & CSendQueue<T>::threadTick));
+	}
+	virtual ~CSendQueue(){ // 虚析构		
+		m_base = NULL;
+		m_callback = NULL;
+		m_thread.Stop();
+	}  
+
+protected:
+	virtual bool PopFront(T& data) {  // TODO：如果是这样子，那么调用PopFront()将会执行哪个呢？？？？
+		return false;
+	}
+	bool PopFront() {
+		typename CQueue<T>::PPARAM* Param = new typename CQueue<T>::PPARAM(CQueue<T>::QPop, T());  // TODO: new PPARAM和new IocpParam应该是一样的； 老师两处用的IocpParam；
+		if (CQueue<T>::m_lock) {
+			delete Param;
+			return false;
+		}
+		bool ret = PostQueuedCompletionStatus(CQueue<T>::m_hCompletionPort, sizeof(*Param), (ULONG_PTR)&Param, NULL);
+		if (ret == false) {
+			delete Param;
+		}
+		return ret;
+	}
+
+protected:
+	int threadTick() {
+		if (WaitForSingleObject(CQueue<T>::m_hThread, 0) != WAIT_TIMEOUT)
+			return 0;
+		if (CQueue<T>::m_lstData.size() > 0) {
+			PopFront();
+		}
+		// Sleep(1);
+		return 0;  // 返回0，线程里面就会继续执行
+	}
+	// 这里使用typename是告诉编译器，这里的模板<T>当成一个已知的参数；
+	virtual void DealParam(typename CQueue<T>::PPARAM* pParam) {  // TODO: 这个函数应该不会被执行到吧，应该只会执行父类的DealParam();因为只有在父类中调用GetQueuedCompletionStatus();
+		switch (pParam->nOperator) {
+		case CQueue<T>::QPush:
+			CQueue<T>::m_lstData.push_back(pParam->Data);
+			delete pParam; // QPush和QClear才需要delete
+			// printf("delete pParam:%08X\r\n", pParam);
+			break;
+		case CQueue<T>::QPop:
+			if (CQueue<T>::m_lstData.size() > 0) {
+				pParam->Data = CQueue<T>::m_lstData.front();
+				// 这里的回调函数执行的发送功能
+				// 如果m_lstData.front()是一个很大的，一次发不完，就不能pop掉，所以回调函数的参数接收的是一个引用，每次发送一截，最后发完返回0；
+				if ((m_base->*m_callback)(pParam->Data) == 0) {  // m_lstData.front()被全部发送完成之后再pop掉
+					CQueue<T>::m_lstData.pop_front();
+				}
+				
+			}
+			delete pParam; // TODO 需要删除吗？有new吗????
+			break;
+		case CQueue<T>::QSize:
+			pParam->nOperator = CQueue<T>::m_lstData.size();
+			if (pParam->hEvent != NULL)
+				SetEvent(pParam->hEvent);
+			break;
+		case CQueue<T>::QClear:
+			CQueue<T>::m_lstData.clear();
+			delete pParam;
+			break;
+		default:
+			OutputDebugStringA("unknown operator!\r\n");
+			break;
+		}
+	}
+private:
+	CThreadFuncBase* m_base;
+	MYCALLBACK m_callback;
+	CThread m_thread;
+};
+
+
+typedef CSendQueue<std::vector<char>>::MYCALLBACK SENDCALLBACK;

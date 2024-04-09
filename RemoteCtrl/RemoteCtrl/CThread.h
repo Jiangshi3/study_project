@@ -67,46 +67,54 @@ public:
 	bool Stop() {
 		if (!m_bStatus) 
 			return true;
-		if (WaitForSingleObject(m_hThread, INFINITE) == WAIT_OBJECT_0) {
-			m_bStatus = false;
-			UpdateWorker();
-			return true;
-		}
+		m_bStatus = false;
+		DWORD ret = WaitForSingleObject(m_hThread, 1000);
+		if (ret == WAIT_TIMEOUT)
+			TerminateThread(m_hThread, -1);
 		UpdateWorker();
-		return false;
+		return ret == WAIT_OBJECT_0;
 	}
 	void UpdateWorker(const CThreadWorker& worker = CThreadWorker()) { // 默认为空
-		if (!worker.IsValid()) {
-			m_worker.store(NULL);  // 置空
-			return;
-		}
-		if (m_worker.load() != NULL) {
+		if (m_worker.load() != NULL && (m_worker.load() != &worker)) {
 			CThreadWorker* pWorker = m_worker.load();
-			m_worker.store(NULL);
+			m_worker.store(NULL); // 置空; 注意原子操作直接置空，不会像智能指针那些会去析构；
 			delete pWorker;
 		}
+		if (m_worker.load() == &worker) return;
+		if (!worker.IsValid()) {
+			m_worker.store(NULL);
+			return;
+		}
+
 		m_worker.store(new CThreadWorker(worker));
 	}
-	// true表示空间，false表示已经分配了工作
+	// true表示空闲，false表示已经分配了工作
 	bool IsIdle() {
+		if (m_worker.load() == NULL) return true;
 		return !m_worker.load()->IsValid();
 	}
 
 private:
 	void ThreadWorker() {  // 线程里面要执行的内容就完全脱离了这个线程；  此线程就是一个框架；
 		while (m_bStatus) {
+			if (m_worker.load() == NULL) {
+				Sleep(1);
+				continue;
+			}
 			CThreadWorker worker = *m_worker.load();
 			if (worker.IsValid()) {
-				int ret = worker();    // 返回值等于0正常； 返回值不等于0提示错误信息；返回值小于0表示错误，提示错误信息并且终止；
-				if (ret != 0) {
-					CString str;
-					str.Format(_T("thread found warning code %d\r\n"), ret);
-					OutputDebugString(str);
-				}
-				if (ret < 0) {
-					// 目的：线程结束之后不结束掉线程,开启线程消耗资源大； 执行完后让线程置空，不结束；
-					m_worker.store(NULL);  // 如果出错，就存储一个空；  
-				}
+				if (WaitForSingleObject(m_hThread, 0) == WAIT_TIMEOUT) {  // IDO：感觉可以直接调用CThread的成员函数IsValid();
+					int ret = worker();    // 返回值等于0正常； 返回值不等于0提示错误信息；返回值小于0表示错误，提示错误信息并且终止；
+					if (ret != 0) {
+						CString str;
+						str.Format(_T("thread found warning code %d\r\n"), ret);
+						OutputDebugString(str);
+					}
+					if (ret < 0) {
+						// 目的：线程结束之后不结束掉线程,开启线程消耗资源大； 执行完后让线程置空，不结束；
+						m_worker.store(NULL);  // 如果出错，就存储一个空；  
+					}
+				}				
 			}
 			else {
 				Sleep(1);
@@ -137,6 +145,10 @@ public:
 	}
 	~CThreadPool() {
 		Stop();
+		for (size_t i = 0; i < m_threads.size(); i++) {
+			delete m_threads[i];
+			m_threads[i] = NULL;
+		}
 		m_threads.clear();
 	}
 	bool Invoke() {
