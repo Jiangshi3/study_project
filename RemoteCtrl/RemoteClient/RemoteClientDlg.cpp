@@ -507,8 +507,8 @@ void CRemoteClientDlg::InitUIData()
 {
 	// 设置IP地址、端口的初始化
 	UpdateData();
-	// m_server_address = 0x7F000001;  // 127.0.0.1
-	m_server_address = 0xC0A8E780;  //  192.168.231.128
+	m_server_address = 0x7F000001;  // 127.0.0.1
+	// m_server_address = 0xC0A8E780;  //  192.168.231.128
 	m_nPort = _T("9527");
 	CClientController* pController = CClientController::getInstance();    // 一开始IP和Port也给他初始化上
 	pController->UpdateAddress(m_server_address, atoi((LPCTSTR)m_nPort));

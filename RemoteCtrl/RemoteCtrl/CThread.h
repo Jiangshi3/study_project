@@ -10,7 +10,8 @@ typedef int(CThreadFuncBase::* FUNCTYPE)();  // ThreadFuncBase类的成员函数指针
 class CThreadWorker {
 public:
 	CThreadWorker() :thiz(NULL), func(NULL) {};
-	CThreadWorker(CThreadFuncBase* pobj, FUNCTYPE f): thiz(pobj), func(f) {}
+	// CThreadWorker(CThreadFuncBase* pobj, FUNCTYPE f): thiz(pobj), func(f) {}
+	CThreadWorker(void* pobj, FUNCTYPE f) : thiz((CThreadFuncBase*)pobj), func(f) {}
 	CThreadWorker(const CThreadWorker& worker) {
 		thiz = worker.thiz;
 		func = worker.func;
@@ -77,6 +78,7 @@ public:
 	void UpdateWorker(const CThreadWorker& worker = CThreadWorker()) { // 默认为空
 		if (m_worker.load() != NULL && (m_worker.load() != &worker)) {
 			CThreadWorker* pWorker = m_worker.load();
+			// TRACE("delete pWorker=%08X, m_worker=%08X\r\n", pWorker, m_worker.load());
 			m_worker.store(NULL); // 置空; 注意原子操作直接置空，不会像智能指针那些会去析构；
 			delete pWorker;
 		}
@@ -85,8 +87,9 @@ public:
 			m_worker.store(NULL);
 			return;
 		}
-
-		m_worker.store(new CThreadWorker(worker));
+		CThreadWorker* pWorker = new CThreadWorker(worker);
+		// TRACE("new pWorker=%08X, m_worker=%08X\r\n", pWorker, m_worker.load());
+		m_worker.store(pWorker);
 	}
 	// true表示空闲，false表示已经分配了工作
 	bool IsIdle() {
@@ -111,8 +114,10 @@ private:
 						OutputDebugString(str);
 					}
 					if (ret < 0) {
+						CThreadWorker* pWorker = m_worker.load();
 						// 目的：线程结束之后不结束掉线程,开启线程消耗资源大； 执行完后让线程置空，不结束；
 						m_worker.store(NULL);  // 如果出错，就存储一个空；  
+						delete pWorker;
 					}
 				}				
 			}

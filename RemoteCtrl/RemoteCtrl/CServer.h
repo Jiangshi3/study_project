@@ -65,8 +65,10 @@ public:
 	}
 	operator LPOVERLAPPED();
 	LPWSABUF RecvWSABuffer();
+	LPOVERLAPPED RecvOverlapped();
 
 	LPWSABUF SendWSABuffer();
+	LPOVERLAPPED SendOverlapped();
 
 	DWORD& flags() {
 		return m_flags;
@@ -162,14 +164,10 @@ public:
 
 	bool StartService();
 	bool NewAccept();
+	void BindNewSocket(SOCKET s);
 
 private:
-	void CreateSocket() {
-		m_sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
-		int opt = 1;
-		setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));  // 设置地址重用
-	}
-
+	void CreateSocket();
 	int threadIocp();
 
 private:

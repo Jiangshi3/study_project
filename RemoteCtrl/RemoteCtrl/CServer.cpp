@@ -18,16 +18,21 @@ AcceptOverlapped<op>::AcceptOverlapped()
 template <MyOperator op>
 int AcceptOverlapped<op>::AcceptWorker() {  // 连接到一个客户端就accept一次
 	INT lLength = 0, rLength = 0;
-	if (*(LPDWORD)*m_client > 0) {
+	if (m_client->GetBufferSize() > 0) {
+		sockaddr* plocal = NULL, * premote = NULL;
 		// 获取与已接受套接字关联的本地地址和远程地址;   接收到一个客户端，会把客户端的socket填写上去（已经准备好的）；
 		GetAcceptExSockaddrs(*m_client, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16,
-			(sockaddr**)m_client->GetLocalAddr(), &lLength, // 本地地址
-			(sockaddr**)m_client->GetRemoteAddr(), &rLength  // 远程地址
+			(sockaddr**)&plocal, &lLength, // 本地地址
+			(sockaddr**)&premote, &rLength  // 远程地址
 		);
+		memcpy(m_client->GetLocalAddr(), plocal, sizeof(sockaddr_in));
+		memcpy(m_client->GetRemoteAddr(), premote, sizeof(sockaddr_in));
 		// 客户端连接进来后
-		int ret = WSARecv((SOCKET)*m_client, m_client->RecvWSABuffer(), 1, *m_client, &m_client->flags(), *m_client, NULL);
+		m_server->BindNewSocket(*m_client);
+		int ret = WSARecv((SOCKET)*m_client, m_client->RecvWSABuffer(), 1, *m_client, &m_client->flags(), (LPWSAOVERLAPPED)m_client->RecvOverlapped(), NULL);
 		if (ret == SOCKET_ERROR && (WSAGetLastError() != WSA_IO_PENDING)) { // 排除掉这个错误：异步操作仍在进行中; WSA_IO_PENDING表示正在处理
 			//TODO:报错
+			TRACE("ret=%d  error=%d\r\n", ret, WSAGetLastError());
 		}
 		if (!m_server->NewAccept()) {  // 开启下一轮的AcceptEx
 			return -2;
@@ -84,9 +89,20 @@ LPWSABUF MyClient::RecvWSABuffer()
 	return &m_recv->m_wsabuffer;
 }
 
+// IDO: 老师写的返回值是：LPWSAOVERLAPPED，两种可以强制类型转换；  在WSARecv();
+LPOVERLAPPED MyClient::RecvOverlapped()
+{
+	return &m_recv->m_overlapped;
+}
+
 LPWSABUF MyClient::SendWSABuffer()
 {
 	return &m_send->m_wsabuffer;
+}
+
+LPOVERLAPPED MyClient::SendOverlapped()
+{
+	return &m_send->m_overlapped;
 }
 
 int MyClient::Recv()
@@ -95,6 +111,7 @@ int MyClient::Recv()
 	if (ret <= 0)return -1;
 	m_used += (size_t)ret;
 	// TODO 解析数据
+	CTool::Dump((BYTE*)m_buffer.data(), ret);
 	return 0;
 }
 
@@ -133,6 +150,7 @@ CServer::~CServer()
 	m_client.clear();  // 把std::map置空
 	CloseHandle(m_hIOCP);
 	m_pool.Stop();
+	WSACleanup();
 }
 
 bool CServer::StartService()
@@ -173,12 +191,29 @@ bool CServer::NewAccept()
 	pClient->SetOverlapped(pClient);
 	m_client.insert(std::pair<SOCKET, PCLIENT>(*pClient, pClient)); // 此时第一个参数类型就是SOCKET，通过操作符重载*pClient返回的就是类的成员变量SOCKET sock；
 	if (!AcceptEx(m_sock, *pClient, *pClient, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16, *pClient, *pClient)) {
-		closesocket(m_sock);
-		m_sock = INVALID_SOCKET;
-		m_hIOCP = INVALID_HANDLE_VALUE;
-		return false;
+		TRACE("%d\r\n", WSAGetLastError());  // 错误代码997，是IO_Pending,不能认为这个是错误的
+		if (WSAGetLastError() != WSA_IO_PENDING) {
+			closesocket(m_sock);
+			m_sock = INVALID_SOCKET;
+			m_hIOCP = INVALID_HANDLE_VALUE;
+			return false;
+		}
 	}
 	return true;
+}
+
+void CServer::BindNewSocket(SOCKET s)
+{
+	CreateIoCompletionPort((HANDLE)s, m_hIOCP, (ULONG_PTR)this, 0);
+}
+
+void CServer::CreateSocket()
+{
+	WSADATA WSAData;
+	WSAStartup(MAKEWORD(2, 2), &WSAData);
+	m_sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
+	int opt = 1;
+	setsockopt(m_sock, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));  // 设置地址重用
 }
 
 int CServer::threadIocp()
@@ -187,8 +222,10 @@ int CServer::threadIocp()
 	ULONG_PTR CompletionKey = 0;
 	OVERLAPPED* lpOverlapped = NULL;
 	if (GetQueuedCompletionStatus(m_hIOCP, &Transferred, &CompletionKey, &lpOverlapped, INFINITE)) {
-		if (Transferred > 0 && (CompletionKey != NULL)) {
+		if (CompletionKey != NULL) {
 			MyOverlapped* pOverlapped = CONTAINING_RECORD(lpOverlapped, MyOverlapped, m_overlapped);
+			pOverlapped->m_server = this;  // 更新m_server
+			TRACE("pOverlapped->m_operator:%d\r\n", pOverlapped->m_operator);
 			switch (pOverlapped->m_operator) {
 			case EAccept: {
 				// AcceptOverlapped<EAccept>* pAccept = (AcceptOverlapped<EAccept>*)pOverlapped;
