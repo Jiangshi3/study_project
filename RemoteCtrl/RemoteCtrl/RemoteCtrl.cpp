@@ -58,10 +58,49 @@ BOOL ChooseAutoInvoke(const CString& strPath) {
 
 void iocp();
 
-int main()
+void udp_server();
+void udp_client(bool ishost = true);
+
+// int wmain(int argc, TCHAR* argv[]);
+// int _tmain(int argc, TCHAR* argv[]);
+int main(int argc, char* argv[])
 {
 	if (!CTool::Init()) return 1;
-	iocp();
+	if (argc == 1) {
+		char wstrDir[MAX_PATH];
+		GetCurrentDirectoryA(MAX_PATH, wstrDir);
+		STARTUPINFOA si;
+		PROCESS_INFORMATION pi;
+		memset(&si, 0, sizeof(si));
+		memset(&pi, 0, sizeof(pi));
+		string strCmd = argv[0];
+		strCmd += " 1";  // 此时的argc=2
+		BOOL bRet = CreateProcessA(NULL, (LPSTR)strCmd.c_str(), NULL, NULL, FALSE, 0, NULL, (LPCSTR)wstrDir, &si, &pi);  // 如果想弹一个新的窗口，就填CREATE_NEW；否则就可以填0
+		if (bRet) {
+			CloseHandle(pi.hThread);
+			CloseHandle(pi.hProcess);
+			TRACE("进程ID:%d\r\n",pi.dwProcessId);
+			TRACE("线程ID:%d\r\n", pi.dwThreadId);
+
+			strCmd += " 2";  // 此时的argc=3
+			bRet = CreateProcessA(NULL, (LPSTR)strCmd.c_str(), NULL, NULL, FALSE, 0, NULL, wstrDir, &si, &pi);
+			if (bRet) {
+				CloseHandle(pi.hThread);
+				CloseHandle(pi.hProcess);
+				TRACE("进程ID:%d\r\n", pi.dwProcessId);
+				TRACE("线程ID:%d\r\n", pi.dwThreadId);
+				udp_server();   // 服务器代码
+			}
+		}
+	}
+	else if (argc == 2) { // 主客户端代码
+		udp_client();
+	}
+	else {  // 从客户端代码
+		udp_client(false);
+	}
+
+	// iocp();
 
 	/*
 	if (CTool::IsAdmin()) {
@@ -159,3 +198,17 @@ void iocp() {
 	}	
 	*/
 }
+
+void udp_server() {
+	printf("%s(%d)%s\r\n",__FILE__, __LINE__,__FUNCTION__);
+	getchar();
+}
+void udp_client(bool ishost) {
+	if (ishost) {  // 主客户端代码
+		printf("ishost  %s(%d)%s\r\n", __FILE__, __LINE__, __FUNCTION__);
+	}
+	else {    // 从客户端代码
+		printf("nothost  %s(%d)%s\r\n", __FILE__, __LINE__, __FUNCTION__);
+	}	
+}
+
