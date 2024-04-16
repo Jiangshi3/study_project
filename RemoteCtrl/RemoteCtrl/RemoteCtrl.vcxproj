@@ -153,6 +153,8 @@
     <ClInclude Include="CThread.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LockinfoDialog.h" />
+    <ClInclude Include="MNetwork.h" />
+    <ClInclude Include="MSocket.h" />
     <ClInclude Include="Packet.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RemoteCtrl.h" />
@@ -165,6 +167,7 @@
     <ClCompile Include="Command.cpp" />
     <ClCompile Include="CServer.cpp" />
     <ClCompile Include="LockinfoDialog.cpp" />
+    <ClCompile Include="MNetwork.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>

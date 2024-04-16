@@ -283,7 +283,7 @@ protected:
 		rect.top = 0;
 		rect.right = GetSystemMetrics(SM_CXFULLSCREEN);  // GetSystemMetrics() 用于获取系统的各种度量信息
 		rect.bottom = GetSystemMetrics(SM_CYFULLSCREEN);
-		rect.bottom *= 1.03;
+		rect.bottom *= (LONG)1.03;
 		// TRACE("right:%d, bottom:%d\r\n", rect.right, rect.bottom);
 		dlg.MoveWindow(&rect);  //MoveWindow() 用于移动窗口, 参数指定窗口的新位置和大小
 
