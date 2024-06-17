@@ -162,7 +162,7 @@ enum{
 
 typedef struct PacketData {
 	std::string strData;  // 数据、也可以拿到数据长度
-	UINT nMode;           // 模式
+	UINT nMode;           // 模式； 是否自动关闭套接字
 	WPARAM wParam;
 	PacketData(const char* pData, size_t nLen, UINT mode, WPARAM nParam = 0) {
 		strData.resize(nLen);

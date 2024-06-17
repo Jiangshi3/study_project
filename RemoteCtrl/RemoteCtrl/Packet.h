@@ -41,7 +41,7 @@ public:
 			strData.clear();
 		}
 	}
-
+	  
 	CPacket(const BYTE* pData, size_t& nSize)  // 数据包解包，将包中的数据分配到成员变量中
 	{
 		size_t i = 0;

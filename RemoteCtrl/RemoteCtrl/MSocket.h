@@ -42,13 +42,13 @@ public:
 		m_port = nPort;
 		m_addr.sin_family = AF_INET;
 		m_addr.sin_port = htons(nPort);
-		m_addr.sin_addr.s_addr = inet_addr(strIP.c_str());
+		m_addr.sin_addr.s_addr = inet_addr(strIP.c_str());  // inet_addr(); 将字符串形式的IP地址转换成32位整形数据，并转换成网络字节序列；
 	}
 	MSockaddrIn(const MSockaddrIn& addr) {
 		memcpy(&m_addr, &addr.m_addr, sizeof(m_addr));
 		m_ip = addr.GetIP();
 		m_port = addr.GetPort();
-		//m_ip = addr.m_ip;  // TODO :老师应该写错了
+		//m_ip = addr.m_ip;  // TODO :老师没写错，可以这样写
 		//m_port = addr.m_port;
 	}
 	MSockaddrIn& operator=(const MSockaddrIn& addr) {

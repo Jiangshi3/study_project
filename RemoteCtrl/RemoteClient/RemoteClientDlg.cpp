@@ -283,7 +283,7 @@ void CRemoteClientDlg::OnDownloadFile()
 	CString strFile = m_list.GetItemText(nListSelected, 0);
 	HTREEITEM hSelected = m_tree.GetSelectedItem();
 	strFile = GetPath(hSelected) + strFile;  // 拿到路径
-	int ret = CClientController::getInstance()->DownFile(strFile);
+	int ret = CClientController::getInstance()->DownFile(strFile);  // View层去调用控制层Controller
 	if (ret != 0) {
 		MessageBox(_T("下载失败！"));
 		TRACE("下载失败！\r\n");
