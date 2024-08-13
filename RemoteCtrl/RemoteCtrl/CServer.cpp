@@ -18,6 +18,7 @@ AcceptOverlapped<op>::AcceptOverlapped()
 template <MyOperator op>
 int AcceptOverlapped<op>::AcceptWorker() {  // 连接到一个客户端就accept一次
 	INT lLength = 0, rLength = 0;
+	// AcceptEx();的这段缓冲区，包括了客户端发来的第一组数据、本地的地址信息、客户端的地址信息
 	if (m_client->GetBufferSize() > 0) {
 		sockaddr* plocal = NULL, * premote = NULL;
 		// 获取与已接受套接字关联的本地地址和远程地址;   接收到一个客户端，会把客户端的socket填写上去（已经准备好的）；
@@ -27,7 +28,7 @@ int AcceptOverlapped<op>::AcceptWorker() {  // 连接到一个客户端就accept一次
 		);
 		memcpy(m_client->GetLocalAddr(), plocal, sizeof(sockaddr_in));
 		memcpy(m_client->GetRemoteAddr(), premote, sizeof(sockaddr_in));
-		// 客户端连接进来后
+		// 客户端连接进来后，绑定到iocp，然后投递WSARecv(); （后续的WSARecv()就不是在这里投递了）
 		m_server->BindNewSocket(*m_client);
 		int ret = WSARecv((SOCKET)*m_client, m_client->RecvWSABuffer(), 1, *m_client, &m_client->flags(), (LPWSAOVERLAPPED)m_client->RecvOverlapped(), NULL);
 		if (ret == SOCKET_ERROR && (WSAGetLastError() != WSA_IO_PENDING)) { // 排除掉这个错误：异步操作仍在进行中; WSA_IO_PENDING表示正在处理
@@ -64,7 +65,7 @@ MyClient::MyClient()
 	m_overlapped(new AcceptOVERLAPPED()), 
 	m_recv(new RecvOVERLAPPED()),
 	m_send(new SendOVERLAPPED()),
-	m_vecSend(this, (SENDCALLBACK)& MyClient::SendData)
+	m_vecSend(this, (SENDCALLBACK)& MyClient::SendData)  // 设置不停发送数据的回调函数
 {
 	m_sock = WSASocket(PF_INET, SOCK_STREAM, 0, NULL, 0, WSA_FLAG_OVERLAPPED);
 	m_buffer.resize(1024);
@@ -104,10 +105,14 @@ LPOVERLAPPED MyClient::SendOverlapped()
 {
 	return &m_send->m_overlapped;
 }
-
+/*
+? 这里还需要调用recv吗？不是IOCP已经帮我们拿到数据了吗? 不是应该直接从RecvOverlapped的缓冲区拿数据就好了嘛？ 【如果这样操作，应该是完全的异步了吧】
+并且拿到数据后，解析数据，根据包命令去执行Command(); Command()执行结束后把应答包push进安全队列中；
+*/
+// 听直播讲到，这整个并不是一个完全的异步，是把IOCP当成epoll来用了？？？
 int MyClient::Recv()
 {
-	int ret = recv(m_sock, m_buffer.data() + m_used, m_buffer.size() - m_used, 0);
+	int ret = recv(m_sock, m_buffer.data() + m_used, m_buffer.size() - m_used, 0);  // ？
 	if (ret <= 0)return -1;
 	m_used += (size_t)ret;
 	// TODO 解析数据
@@ -115,6 +120,7 @@ int MyClient::Recv()
 	return 0;
 }
 
+// 把要发送的数据push进发送队列中
 int MyClient::Send(void* buffer, size_t nSize)
 {
 	std::vector<char> data(nSize);
@@ -126,6 +132,7 @@ int MyClient::Send(void* buffer, size_t nSize)
 	return -1;
 }
 
+// 取安全队列中front的值进行发送； （在CSendQueue中，如果有数据，会不停地执行此函数进行发送；这个函数就是设置的回调函数）
 int MyClient::SendData(std::vector<char>& data)
 {
 	if (m_vecSend.Size() > 0) {
@@ -179,7 +186,7 @@ bool CServer::StartService()
 	// m_pool.DispatchWorker(CThreadWorker(this, (FUNCTYPE)&CServer::threadIocp));
 	// m_pool.DispatchWorker(CThreadWorker(this, (FUNCTYPE)&CServer::threadIocp));
 
-	if (!NewAccept()) {
+	if (!NewAccept()) {  // 投递异步IO请求 AcceptEx(); .....
 		return false;
 	}
 	return true;
@@ -187,9 +194,10 @@ bool CServer::StartService()
 
 bool CServer::NewAccept()
 {
-	PCLIENT pClient(new MyClient());
+	PCLIENT pClient(new MyClient()); // 在AcceptEx之前提前创建好socket
 	pClient->SetOverlapped(pClient);
 	m_client.insert(std::pair<SOCKET, PCLIENT>(*pClient, pClient)); // 此时第一个参数类型就是SOCKET，通过操作符重载*pClient返回的就是类的成员变量SOCKET sock；
+	// 比所使用的传输协议的最大地址长度多 16 个字节； 第四个参数如果设置为0，则不会等待数据到来，直接返回
 	if (!AcceptEx(m_sock, *pClient, *pClient, 0, sizeof(sockaddr_in) + 16, sizeof(sockaddr_in) + 16, *pClient, *pClient)) {
 		TRACE("%d\r\n", WSAGetLastError());  // 错误代码997，是IO_Pending,不能认为这个是错误的
 		if (WSAGetLastError() != WSA_IO_PENDING) {
@@ -222,14 +230,18 @@ int CServer::threadIocp()
 	ULONG_PTR CompletionKey = 0;
 	OVERLAPPED* lpOverlapped = NULL;
 	if (GetQueuedCompletionStatus(m_hIOCP, &Transferred, &CompletionKey, &lpOverlapped, INFINITE)) {
-		if (CompletionKey != NULL) {
+		if (CompletionKey != NULL) {  // 通过PostQueuedCompletionStatus();来传递CompletionKey=null表示结束工作线程
+			// CONTAINNING_RECORD 根据结构体中成员变量的地址，计算出结构体的地址； 
+			// 参数：成员变量地址、结构体类型、成员变量名； 
+			// 保证OVERLAPPED m_overlapped;在结构体的第一个位置；才能这种操作，找到结构体MyOverlapped的地址
 			MyOverlapped* pOverlapped = CONTAINING_RECORD(lpOverlapped, MyOverlapped, m_overlapped);
 			pOverlapped->m_server = this;  // 更新m_server
 			TRACE("pOverlapped->m_operator:%d\r\n", pOverlapped->m_operator);
 			switch (pOverlapped->m_operator) {
 			case EAccept: {
 				// AcceptOverlapped<EAccept>* pAccept = (AcceptOverlapped<EAccept>*)pOverlapped;
-				AcceptOVERLAPPED* pAccept = (AcceptOVERLAPPED*)pOverlapped;
+				// 这里是强制类型转换，基类指针转换为派生类指针（派生类中没有额外的成员变量）
+				AcceptOVERLAPPED* pAccept = (AcceptOVERLAPPED*)pOverlapped; 
 				m_pool.DispatchWorker(pAccept->m_worker);
 				break;
 			}
@@ -240,7 +252,7 @@ int CServer::threadIocp()
 			}
 			case ESend: {
 				SendOVERLAPPED* pSend = (SendOVERLAPPED*)pOverlapped;
-				m_pool.DispatchWorker(pSend->m_worker);
+				m_pool.DispatchWorker(pSend->m_worker); // 这里发送完成后，并不会执行什么；
 				break;
 			}
 			case EError: {

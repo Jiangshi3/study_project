@@ -17,6 +17,7 @@ class CServer;
 class MyClient;
 
 typedef std::shared_ptr<MyClient> PCLIENT;
+// using  PCLIENT = std::shared_ptr<MyClient>;
 
 template <MyOperator> class AcceptOverlapped; // 要声明
 template <MyOperator> class RecvOverlapped;
@@ -30,7 +31,8 @@ typedef ErrorOverlapped<EError> ErrorOVERLAPPED;
 
 class MyOverlapped {
 public:
-	OVERLAPPED m_overlapped;  // 在第一个
+	// overlapped在第一位;     【这里是用的类，而不是结构体，后续不需要通过CONTAINING_RECORD来获取结构体的指针（错吧，也用到了CONTAINING_RECORD）】
+	OVERLAPPED m_overlapped;  // overlapped从用户态投递到内核态，完成后用户态再拿到，通过这个来判断是哪一次的io
 	DWORD m_operator;         // 操作  enum MyOperator{};
     std::vector<char> m_buffer;  // 缓冲区
     CThreadWorker m_worker;  // 处理函数
@@ -100,6 +102,7 @@ private:
 	sockaddr_in m_laddr; // local addr  本地地址
 	sockaddr_in m_raddr; // remote addr 远程地址
 	bool m_isbusy;
+	// 这个安全队列，如果队列中有数据，会不停地发送
 	CSendQueue<std::vector<char>> m_vecSend;  // 发送数据队列；    这个队列里面是个vector<char>，是一个要发送的buffer
 };
 
@@ -129,7 +132,7 @@ public:
 	/*
 	*1 Send可能不会立即完成
 	*/
-	int SendWorker() {
+	int SendWorker() {  // IOCP已经帮我们发送完了，所以这里并不会执行什么； IThink；
 		return -1;
 	}
 };

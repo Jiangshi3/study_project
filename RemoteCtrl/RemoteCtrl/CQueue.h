@@ -104,6 +104,7 @@ public:
 			delete pParam;
 			return false;
 		}
+		// 这里没有使用overlapped，使用了(ULONG_PTR)pParam作为CompletionKey来进行映射
 		bool ret = PostQueuedCompletionStatus(m_hCompletionPort, sizeof(PPARAM), (ULONG_PTR)pParam, NULL);
 		if (ret == false)
 			delete pParam;
@@ -199,11 +200,12 @@ public:
 	}  
 
 protected:
-	virtual bool PopFront(T& data) {  // TODO：如果是这样子，那么调用PopFront()将会执行哪个呢？？？？
+	virtual bool PopFront(T& data) {  
+		// TODO：如果是这样子，那么调用PopFront()将会执行哪个呢？ 【肯定是根据具体的对象来执行对应的虚函数】
 		return false;
 	}
 	bool PopFront() {
-		typename CQueue<T>::PPARAM* Param = new typename CQueue<T>::PPARAM(CQueue<T>::QPop, T());  // TODO: new PPARAM和new IocpParam应该是一样的； 老师两处用的IocpParam；
+		typename CQueue<T>::PPARAM* Param = new typename CQueue<T>::PPARAM(CQueue<T>::QPop, T());  // TODO: new PPARAM和new IocpParam应该是一样的； 老师两处用的IocpParam；【？不确定？】
 		if (CQueue<T>::m_lock) {
 			delete Param;
 			return false;
@@ -225,8 +227,10 @@ protected:
 		// Sleep(1);
 		return 0;  // 返回0，线程里面就会继续执行
 	}
+	// TODO: DealParamParam();应该不会被执行到吧，应该只会执行父类的DealParam();因为只有在父类中void threadMain();调用GetQueuedCompletionStatus();
+	// ans: 会被执行到; 这里是派生类重写了DealParam(); 对于void threadMain();不需要重写，直接继承过来； c++多态呀这是；
 	// 这里使用typename是告诉编译器，这里的模板<T>当成一个已知的参数；
-	virtual void DealParam(typename CQueue<T>::PPARAM* pParam) {  // TODO: 这个函数应该不会被执行到吧，应该只会执行父类的DealParam();因为只有在父类中调用GetQueuedCompletionStatus();
+	virtual void DealParam(typename CQueue<T>::PPARAM* pParam) {  
 		switch (pParam->nOperator) {
 		case CQueue<T>::QPush:
 			CQueue<T>::m_lstData.push_back(pParam->Data);
@@ -240,8 +244,7 @@ protected:
 				// 如果m_lstData.front()是一个很大的，一次发不完，就不能pop掉，所以回调函数的参数接收的是一个引用，每次发送一截，最后发完返回0；
 				if ((m_base->*m_callback)(pParam->Data) == 0) {  // m_lstData.front()被全部发送完成之后再pop掉
 					CQueue<T>::m_lstData.pop_front();
-				}
-				
+				}				
 			}
 			delete pParam; // TODO 需要删除吗？有new吗????
 			break;

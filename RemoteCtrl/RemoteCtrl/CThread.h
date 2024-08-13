@@ -7,6 +7,7 @@
 
 class CThreadFuncBase {};  // 自己的类只要继承了CThreadFuncBase，并写好自己的成员函数； 就可以把功能传递到CThreadWorker；然后通过线程池传递到线程中；
 typedef int(CThreadFuncBase::* FUNCTYPE)();  // ThreadFuncBase类的成员函数指针
+
 class CThreadWorker {
 public:
 	CThreadWorker() :thiz(NULL), func(NULL) {};
@@ -91,7 +92,7 @@ public:
 		// TRACE("new pWorker=%08X, m_worker=%08X\r\n", pWorker, m_worker.load());
 		m_worker.store(pWorker);
 	}
-	// true表示空闲，false表示已经分配了工作
+	// true 表示空闲，false 表示已经分配了工作
 	bool IsIdle() {
 		if (m_worker.load() == NULL) return true;
 		return !m_worker.load()->IsValid();
@@ -107,7 +108,7 @@ private:
 			CThreadWorker worker = *m_worker.load();
 			if (worker.IsValid()) {
 				if (WaitForSingleObject(m_hThread, 0) == WAIT_TIMEOUT) {  // IDO：感觉可以直接调用CThread的成员函数IsValid();
-					int ret = worker();    // 返回值等于0正常； 返回值不等于0提示错误信息；返回值小于0表示错误，提示错误信息并且终止；
+					int ret = worker();    // 返回值等于0正常，然后继续循环执行； 返回值不等于0提示错误信息；返回值小于0表示错误，提示错误信息并且终止；
 					if (ret != 0) {
 						CString str;
 						str.Format(_T("thread found warning code %d\r\n"), ret);
@@ -133,7 +134,7 @@ private:
 	}
 private:
 	HANDLE m_hThread;
-	bool m_bStatus;  // true表示线程正在运行； false表示线程关闭
+	bool m_bStatus;  // true 表示线程正在运行； false 表示线程关闭
 	std::atomic<CThreadWorker*> m_worker;
 };
 

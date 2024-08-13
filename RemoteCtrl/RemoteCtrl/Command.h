@@ -221,7 +221,7 @@ protected:
 
 
     int SendScreen(std::list<CPacket>& lstPacket, CPacket& inPacket) {
-        CImage screen;  // GDI
+        CImage screen;  // GDI：图形设备接口，使用第一代桌面采集技术；
         // DC:设备上下文
         HDC hScreen = ::GetDC(NULL);  // 获取整个屏幕的设备上下文句柄（HDC）
         // GetDeviceCaps()函数获取屏幕设备上下文的属性;

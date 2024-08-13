@@ -11,7 +11,7 @@ class CServerSocket
 {
 public:
 	static CServerSocket* getInstance() {
-		// 静态成员函数没有this指针，只能方位静态成员变量；m_instance为静态成员变量
+		// 静态成员函数没有this指针，只能访问静态成员变量；m_instance为静态成员变量
 		if (m_instance == NULL)  // 单例；此时是线程安全的，不需要mutex；因为是在main之前执行的。
 		{
 			m_instance = new CServerSocket(); 
@@ -137,7 +137,7 @@ private:
 		}
 		m_servSock = socket(PF_INET, SOCK_STREAM, 0);
 	}
-	CServerSocket(const CServerSocket& ss) {}              // 禁止拷贝构造
+	CServerSocket(const CServerSocket& ss) {}              // 禁止拷贝构造 =delete
 	CServerSocket& operator=(const CServerSocket& ss) {}   // 禁止拷贝赋值
 	~CServerSocket() {
 		closesocket(m_servSock);
